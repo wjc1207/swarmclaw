@@ -4,6 +4,15 @@
 
 A DLC extension for [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-controlled hardware interaction with ESP32 devices.
 
+## Supported LLM Providers
+
+| Provider | Value | API Endpoint | Notes |
+|----------|-------|-------------|-------|
+| Anthropic (Claude) | `anthropic` | api.anthropic.com | Default |
+| OpenAI (GPT) | `openai` | api.openai.com | |
+| OpenRouter | `openrouter` | openrouter.ai | Free tier available |
+| NVIDIA NIM | `nvidia` | integrate.api.nvidia.com | Free tier available |
+
 ## Features
 
 - 🎨 **RGB LED Control** - Control WS2812 RGB LEDs with JSON commands
