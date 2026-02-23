@@ -18,22 +18,16 @@ cd /path/to/your/mimiclaw/project/components
 git clone https://github.com/wjc1207/mimiclaw_DLC.git
 ```
 
-Include in your application:
-```c
-#include "tool_rgb.h"
-#include "tool_capture.h"
-```
-
 ## Usage
 
 **RGB LED Control:**
 ```c
-"Turn RGB LED to Scotland sky blue"
+"Turn RGB LED to a "mys"(Swidish) color"
 ```
 
 **Camera Capture:**
 ```c
-"Capture an image from the ESP32-CAM"
+"Capture an image from the ESP32-CAM. "
 ```
 
 ## Configuration
