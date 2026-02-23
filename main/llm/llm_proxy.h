@@ -13,6 +13,12 @@
 esp_err_t llm_proxy_init(void);
 
 /**
+ * Return true if the active provider uses the Anthropic messages API
+ * (i.e. not an OpenAI-compatible endpoint).
+ */
+bool llm_provider_is_anthropic(void);
+
+/**
  * Save the LLM API key to NVS.
  */
 esp_err_t llm_set_api_key(const char *api_key);

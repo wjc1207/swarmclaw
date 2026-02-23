@@ -3,6 +3,7 @@
 #include "proxy/http_proxy.h"
 
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include "esp_log.h"
 #include "esp_http_client.h"
@@ -21,6 +22,58 @@ static const char *TAG = "llm";
 static char s_api_key[LLM_API_KEY_MAX_LEN] = {0};
 static char s_model[LLM_MODEL_MAX_LEN] = MIMI_LLM_DEFAULT_MODEL;
 static char s_provider[16] = MIMI_LLM_PROVIDER_DEFAULT;
+
+typedef enum {
+    LLM_PROVIDER_ANTHROPIC = 0,
+    LLM_PROVIDER_OPENAI,
+    LLM_PROVIDER_OPENROUTER,
+    LLM_PROVIDER_NVIDIA,
+    LLM_PROVIDER_UNKNOWN,
+} llm_provider_t;
+
+typedef struct {
+    const char    *name;
+    llm_provider_t id;
+    const char    *url;
+    const char    *host;
+    const char    *path;
+} provider_map_t;
+
+static const provider_map_t k_provider_map[] = {
+    { "anthropic",  LLM_PROVIDER_ANTHROPIC,  MIMI_LLM_API_URL,        "api.anthropic.com",        "/v1/messages"         },
+    { "openai",     LLM_PROVIDER_OPENAI,     MIMI_OPENAI_API_URL,     "api.openai.com",           "/v1/chat/completions" },
+    { "openrouter", LLM_PROVIDER_OPENROUTER, MIMI_OPENROUTER_API_URL, "openrouter.ai",            "/v1/chat/completions" },
+    { "nvidia",     LLM_PROVIDER_NVIDIA,     MIMI_NVIDIA_API_URL,     "integrate.api.nvidia.com", "/v1/chat/completions" },
+};
+#define PROVIDER_MAP_LEN (sizeof(k_provider_map) / sizeof(k_provider_map[0]))
+
+static llm_provider_t s_llm_provider = LLM_PROVIDER_ANTHROPIC;
+
+static llm_provider_t provider_parse(const char *str)
+{
+    if (!str) return LLM_PROVIDER_UNKNOWN;
+    for (size_t i = 0; i < PROVIDER_MAP_LEN; i++) {
+        if (strcasecmp(str, k_provider_map[i].name) == 0) {
+            return k_provider_map[i].id;
+        }
+    }
+    return LLM_PROVIDER_UNKNOWN;
+}
+
+static const provider_map_t *provider_entry(void)
+{
+    for (size_t i = 0; i < PROVIDER_MAP_LEN; i++) {
+        if (k_provider_map[i].id == s_llm_provider) {
+            return &k_provider_map[i];
+        }
+    }
+    return &k_provider_map[0]; /* defensive fallback to anthropic */
+}
+
+bool llm_provider_is_anthropic(void)
+{
+    return s_llm_provider == LLM_PROVIDER_ANTHROPIC;
+}
 
 static void llm_log_payload(const char *label, const char *payload)
 {
@@ -100,7 +153,15 @@ static esp_err_t resp_buf_init(resp_buf_t *rb, size_t initial_cap)
 
 static esp_err_t resp_buf_append(resp_buf_t *rb, const char *data, size_t len)
 {
+    if (rb->len + len > MIMI_LLM_RESP_MAX_BYTES) {
+        ESP_LOGE(TAG, "Response too large (>%u bytes), aborting", MIMI_LLM_RESP_MAX_BYTES);
+        return ESP_ERR_NO_MEM;
+    }
     while (rb->len + len >= rb->cap) {
+        if (rb->cap > SIZE_MAX / 2) {
+            ESP_LOGE(TAG, "Response buffer capacity overflow");
+            return ESP_ERR_NO_MEM;
+        }
         size_t new_cap = rb->cap * 2;
         char *tmp = heap_caps_realloc(rb->data, new_cap, MALLOC_CAP_SPIRAM);
         if (!tmp) return ESP_ERR_NO_MEM;
@@ -127,32 +188,18 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     resp_buf_t *rb = (resp_buf_t *)evt->user_data;
     if (evt->event_id == HTTP_EVENT_ON_DATA) {
-        resp_buf_append(rb, (const char *)evt->data, evt->data_len);
+        if (resp_buf_append(rb, (const char *)evt->data, evt->data_len) != ESP_OK) {
+            return ESP_FAIL;
+        }
     }
     return ESP_OK;
 }
 
 /* ── Provider helpers ──────────────────────────────────────────── */
 
-static bool provider_is_openai(void)
-{
-    return strcmp(s_provider, "openai") == 0;
-}
-
-static const char *llm_api_url(void)
-{
-    return provider_is_openai() ? MIMI_OPENAI_API_URL : MIMI_LLM_API_URL;
-}
-
-static const char *llm_api_host(void)
-{
-    return provider_is_openai() ? "api.openai.com" : "api.anthropic.com";
-}
-
-static const char *llm_api_path(void)
-{
-    return provider_is_openai() ? "/v1/chat/completions" : "/v1/messages";
-}
+static const char *llm_api_url(void)  { return provider_entry()->url;  }
+static const char *llm_api_host(void) { return provider_entry()->host; }
+static const char *llm_api_path(void) { return provider_entry()->path; }
 
 /* ── Init ─────────────────────────────────────────────────────── */
 
@@ -167,6 +214,11 @@ esp_err_t llm_proxy_init(void)
     }
     if (MIMI_SECRET_MODEL_PROVIDER[0] != '\0') {
         safe_copy(s_provider, sizeof(s_provider), MIMI_SECRET_MODEL_PROVIDER);
+        s_llm_provider = provider_parse(s_provider);
+        if (s_llm_provider == LLM_PROVIDER_UNKNOWN) {
+            ESP_LOGW(TAG, "Unknown provider '%s' in build config; defaulting to anthropic", s_provider);
+            s_llm_provider = LLM_PROVIDER_ANTHROPIC;
+        }
     }
 
     /* NVS overrides take highest priority (set via CLI) */
@@ -185,7 +237,13 @@ esp_err_t llm_proxy_init(void)
         char provider_tmp[16] = {0};
         len = sizeof(provider_tmp);
         if (nvs_get_str(nvs, MIMI_NVS_KEY_PROVIDER, provider_tmp, &len) == ESP_OK && provider_tmp[0]) {
-            safe_copy(s_provider, sizeof(s_provider), provider_tmp);
+            llm_provider_t parsed = provider_parse(provider_tmp);
+            if (parsed == LLM_PROVIDER_UNKNOWN) {
+                ESP_LOGW(TAG, "Unknown provider '%s' in NVS; keeping current provider", provider_tmp);
+            } else {
+                safe_copy(s_provider, sizeof(s_provider), provider_tmp);
+                s_llm_provider = parsed;
+            }
         }
         nvs_close(nvs);
     }
@@ -217,7 +275,7 @@ static esp_err_t llm_http_direct(const char *post_data, resp_buf_t *rb, int *out
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         if (s_api_key[0]) {
             char auth[LLM_API_KEY_MAX_LEN + 16];
             snprintf(auth, sizeof(auth), "Bearer %s", s_api_key);
@@ -245,7 +303,7 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
     int body_len = strlen(post_data);
     char header[1024];
     int hlen = 0;
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         hlen = snprintf(header, sizeof(header),
             "POST %s HTTP/1.1\r\n"
             "Host: %s\r\n"
@@ -264,6 +322,11 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
             "Content-Length: %d\r\n"
             "Connection: close\r\n\r\n",
             llm_api_path(), llm_api_host(), s_api_key, MIMI_LLM_API_VERSION, body_len);
+    }
+
+    if (hlen < 0 || (size_t)hlen >= sizeof(header)) {
+        proxy_conn_close(conn);
+        return ESP_ERR_INVALID_SIZE;
     }
 
     if (proxy_conn_write(conn, header, hlen) < 0 ||
@@ -487,6 +550,8 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                     cJSON_AddStringToObject(tm, "tool_call_id", tool_id->valuestring);
                     if (tcontent && cJSON_IsString(tcontent)) {
                         cJSON_AddStringToObject(tm, "content", tcontent->valuestring);
+                    } else if (tcontent && cJSON_IsArray(tcontent)) {
+                        cJSON_AddItemToObject(tm, "content", cJSON_Duplicate(tcontent, 1));
                     } else {
                         cJSON_AddStringToObject(tm, "content", "");
                     }
@@ -532,13 +597,13 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
     }
 
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *messages = cJSON_Parse(messages_json);
         if (!messages) {
             messages = cJSON_CreateArray();
@@ -615,7 +680,7 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
         return ESP_FAIL;
     }
 
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         extract_text_openai(root, response_buf, buf_size);
     } else {
         extract_text_anthropic(root, response_buf, buf_size);
@@ -658,13 +723,13 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
     }
 
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *openai_msgs = convert_messages_openai(system_prompt, messages);
         cJSON_AddItemToObject(body, "messages", openai_msgs);
 
@@ -734,7 +799,7 @@ esp_err_t llm_chat_tools(const char *system_prompt,
         return ESP_FAIL;
     }
 
-    if (provider_is_openai()) {
+    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC) {
         cJSON *choices = cJSON_GetObjectItem(root, "choices");
         cJSON *choice0 = choices && cJSON_IsArray(choices) ? cJSON_GetArrayItem(choices, 0) : NULL;
         if (choice0) {
@@ -898,6 +963,12 @@ esp_err_t llm_set_model(const char *model)
 
 esp_err_t llm_set_provider(const char *provider)
 {
+    if (!provider || provider_parse(provider) == LLM_PROVIDER_UNKNOWN) {
+        ESP_LOGE(TAG, "Unknown provider '%s'; valid: anthropic, openai, openrouter, nvidia",
+                 provider ? provider : "<null>");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     nvs_handle_t nvs;
     ESP_ERROR_CHECK(nvs_open(MIMI_NVS_LLM, NVS_READWRITE, &nvs));
     ESP_ERROR_CHECK(nvs_set_str(nvs, MIMI_NVS_KEY_PROVIDER, provider));
@@ -905,6 +976,7 @@ esp_err_t llm_set_provider(const char *provider)
     nvs_close(nvs);
 
     safe_copy(s_provider, sizeof(s_provider), provider);
+    s_llm_provider = provider_parse(s_provider);
     ESP_LOGI(TAG, "Provider set to: %s", s_provider);
     return ESP_OK;
 }
