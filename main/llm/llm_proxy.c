@@ -32,13 +32,16 @@ typedef enum {
 typedef struct {
     const char    *name;
     llm_provider_t id;
+    const char    *url;
+    const char    *host;
+    const char    *path;
 } provider_map_t;
 
 static const provider_map_t k_provider_map[] = {
-    { "anthropic",  LLM_PROVIDER_ANTHROPIC  },
-    { "openai",     LLM_PROVIDER_OPENAI     },
-    { "openrouter", LLM_PROVIDER_OPENROUTER },
-    { "nvidia",     LLM_PROVIDER_NVIDIA     },
+    { "anthropic",  LLM_PROVIDER_ANTHROPIC,  MIMI_LLM_API_URL,        "api.anthropic.com",        "/v1/messages"         },
+    { "openai",     LLM_PROVIDER_OPENAI,     MIMI_OPENAI_API_URL,     "api.openai.com",           "/v1/chat/completions" },
+    { "openrouter", LLM_PROVIDER_OPENROUTER, MIMI_OPENROUTER_API_URL, "openrouter.ai",            "/v1/chat/completions" },
+    { "nvidia",     LLM_PROVIDER_NVIDIA,     MIMI_NVIDIA_API_URL,     "integrate.api.nvidia.com", "/v1/chat/completions" },
 };
 #define PROVIDER_MAP_LEN (sizeof(k_provider_map) / sizeof(k_provider_map[0]))
 
@@ -53,6 +56,16 @@ static llm_provider_t provider_parse(const char *str)
         }
     }
     return LLM_PROVIDER_ANTHROPIC;
+}
+
+static const provider_map_t *provider_entry(void)
+{
+    for (size_t i = 0; i < PROVIDER_MAP_LEN; i++) {
+        if (k_provider_map[i].id == s_llm_provider) {
+            return &k_provider_map[i];
+        }
+    }
+    return &k_provider_map[0]; /* defensive fallback to anthropic */
 }
 
 static void llm_log_payload(const char *label, const char *payload)
@@ -167,32 +180,9 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 /* ── Provider helpers ──────────────────────────────────────────── */
 
-static const char *llm_api_url(void)
-{
-    switch (s_llm_provider) {
-        case LLM_PROVIDER_OPENROUTER: return MIMI_OPENROUTER_API_URL;
-        case LLM_PROVIDER_NVIDIA:     return MIMI_NVIDIA_API_URL;
-        case LLM_PROVIDER_OPENAI:     return MIMI_OPENAI_API_URL;
-        case LLM_PROVIDER_ANTHROPIC:  return MIMI_LLM_API_URL;
-    }
-    return MIMI_LLM_API_URL; /* unreachable; silences -Wreturn-type */
-}
-
-static const char *llm_api_host(void)
-{
-    switch (s_llm_provider) {
-        case LLM_PROVIDER_OPENROUTER: return "openrouter.ai";
-        case LLM_PROVIDER_NVIDIA:     return "integrate.api.nvidia.com";
-        case LLM_PROVIDER_OPENAI:     return "api.openai.com";
-        case LLM_PROVIDER_ANTHROPIC:  return "api.anthropic.com";
-    }
-    return "api.anthropic.com"; /* unreachable; silences -Wreturn-type */
-}
-
-static const char *llm_api_path(void)
-{
-    return (s_llm_provider == LLM_PROVIDER_ANTHROPIC) ? "/v1/messages" : "/v1/chat/completions";
-}
+static const char *llm_api_url(void)  { return provider_entry()->url;  }
+static const char *llm_api_host(void) { return provider_entry()->host; }
+static const char *llm_api_path(void) { return provider_entry()->path; }
 
 /* ── Init ─────────────────────────────────────────────────────── */
 
@@ -306,6 +296,11 @@ static esp_err_t llm_http_via_proxy(const char *post_data, resp_buf_t *rb, int *
             "Content-Length: %d\r\n"
             "Connection: close\r\n\r\n",
             llm_api_path(), llm_api_host(), s_api_key, MIMI_LLM_API_VERSION, body_len);
+    }
+
+    if (hlen < 0 || (size_t)hlen >= sizeof(header)) {
+        proxy_conn_close(conn);
+        return ESP_ERR_INVALID_SIZE;
     }
 
     if (proxy_conn_write(conn, header, hlen) < 0 ||
