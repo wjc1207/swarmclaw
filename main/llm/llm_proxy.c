@@ -550,6 +550,8 @@ static cJSON *convert_messages_openai(const char *system_prompt, cJSON *messages
                     cJSON_AddStringToObject(tm, "tool_call_id", tool_id->valuestring);
                     if (tcontent && cJSON_IsString(tcontent)) {
                         cJSON_AddStringToObject(tm, "content", tcontent->valuestring);
+                    } else if (tcontent && cJSON_IsArray(tcontent)) {
+                        cJSON_AddItemToObject(tm, "content", cJSON_Duplicate(tcontent, 1));
                     } else {
                         cJSON_AddStringToObject(tm, "content", "");
                     }

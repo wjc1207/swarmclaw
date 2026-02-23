@@ -175,6 +175,28 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
             cJSON_AddItemToObject(image_block, "source", source);
             cJSON_AddItemToArray(content_array, image_block);
             cJSON_AddItemToObject(result_block, "content", content_array);
+        } else if (!is_anthropic && strcmp(call->name, "camera_capture") == 0) {
+            /* OpenAI-compatible: image_url content array.
+             * convert_messages_openai() will forward the array as-is on the
+             * role=tool message, giving the model vision access to the image. */
+            static const char k_prefix[] = "data:image/jpeg;base64,";
+            size_t url_len = sizeof(k_prefix) - 1 + strlen(tool_output);
+            char *url_buf = malloc(url_len + 1);
+            if (url_buf) {
+                memcpy(url_buf, k_prefix, sizeof(k_prefix) - 1);
+                strcpy(url_buf + sizeof(k_prefix) - 1, tool_output);
+                cJSON *content_array = cJSON_CreateArray();
+                cJSON *image_block = cJSON_CreateObject();
+                cJSON_AddStringToObject(image_block, "type", "image_url");
+                cJSON *image_url = cJSON_CreateObject();
+                cJSON_AddStringToObject(image_url, "url", url_buf);
+                free(url_buf); /* cJSON_AddStringToObject copied the string */
+                cJSON_AddItemToObject(image_block, "image_url", image_url);
+                cJSON_AddItemToArray(content_array, image_block);
+                cJSON_AddItemToObject(result_block, "content", content_array);
+            } else {
+                cJSON_AddStringToObject(result_block, "content", "[image: out of memory]");
+            }
         } else {
             /* OpenAI-compatible providers require a plain string for tool
              * result content.  convert_messages_openai() in llm_proxy.c
