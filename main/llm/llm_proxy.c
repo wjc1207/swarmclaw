@@ -136,17 +136,25 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
 static bool provider_is_openai(void)
 {
-    return strcmp(s_provider, "openai") == 0;
+    return strcmp(s_provider, "openai") == 0 ||
+           strcmp(s_provider, "openrouter") == 0 ||
+           strcmp(s_provider, "nvidia") == 0;
 }
 
 static const char *llm_api_url(void)
 {
-    return provider_is_openai() ? MIMI_OPENAI_API_URL : MIMI_LLM_API_URL;
+    if (strcmp(s_provider, "openrouter") == 0) return MIMI_OPENROUTER_API_URL;
+    if (strcmp(s_provider, "nvidia") == 0)     return MIMI_NVIDIA_API_URL;
+    if (strcmp(s_provider, "openai") == 0)     return MIMI_OPENAI_API_URL;
+    return MIMI_LLM_API_URL;
 }
 
 static const char *llm_api_host(void)
 {
-    return provider_is_openai() ? "api.openai.com" : "api.anthropic.com";
+    if (strcmp(s_provider, "openrouter") == 0) return "openrouter.ai";
+    if (strcmp(s_provider, "nvidia") == 0)     return "integrate.api.nvidia.com";
+    if (strcmp(s_provider, "openai") == 0)     return "api.openai.com";
+    return "api.anthropic.com";
 }
 
 static const char *llm_api_path(void)
