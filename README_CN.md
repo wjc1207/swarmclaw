@@ -31,7 +31,7 @@ MimiClaw 把一块小小的 ESP32-S3 开发板变成你的私人 AI 助理。插
 
 ![](assets/mimiclaw.png)
 
-你在 Telegram 发一条消息，ESP32-S3 通过 WiFi 收到后送进 Agent 循环 — LLM 思考、调用工具、读取记忆 — 再把回复发回来。同时支持 **Anthropic (Claude)** 和 **OpenAI (GPT)** 两种提供商，运行时可切换。一切都跑在一颗 $5 的芯片上，所有数据存在本地 Flash。
+你在 Telegram 发一条消息，ESP32-S3 通过 WiFi 收到后送进 Agent 循环 — LLM 思考、调用工具、读取记忆 — 再把回复发回来。同时支持 **Anthropic (Claude)**、**OpenAI (GPT)**、**OpenRouter** 和 **NVIDIA NIM** 四种提供商，运行时可切换。一切都跑在一颗 $5 的芯片上，所有数据存在本地 Flash。
 
 ## 快速开始
 
@@ -40,7 +40,7 @@ MimiClaw 把一块小小的 ESP32-S3 开发板变成你的私人 AI 助理。插
 - 一块 **ESP32-S3 开发板**，16MB Flash + 8MB PSRAM（如小智 AI 开发板，~¥30）
 - 一根 **USB Type-C 数据线**
 - 一个 **Telegram Bot Token** — 在 Telegram 找 [@BotFather](https://t.me/BotFather) 创建
-- 一个 **Anthropic API Key** — 从 [console.anthropic.com](https://console.anthropic.com) 获取，或一个 **OpenAI API Key** — 从 [platform.openai.com](https://platform.openai.com) 获取
+- 一个 **Anthropic API Key** — 从 [console.anthropic.com](https://console.anthropic.com) 获取，或一个 **OpenAI API Key** — 从 [platform.openai.com](https://platform.openai.com) 获取，或一个 **OpenRouter API Key** — 从 [openrouter.ai](https://openrouter.ai)（提供免费额度），或一个 **NVIDIA NIM API Key** — 从 [integrate.api.nvidia.com](https://integrate.api.nvidia.com)（提供免费额度）
 
 ### 安装
 
@@ -69,7 +69,7 @@ cp main/mimi_secrets.h.example main/mimi_secrets.h
 #define MIMI_SECRET_WIFI_PASS       "你的WiFi密码"
 #define MIMI_SECRET_TG_TOKEN        "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
 #define MIMI_SECRET_API_KEY         "sk-ant-api03-xxxxx"
-#define MIMI_SECRET_MODEL_PROVIDER  "anthropic"     // "anthropic" 或 "openai"
+#define MIMI_SECRET_MODEL_PROVIDER  "anthropic"     // "anthropic"、"openai"、"openrouter" 或 "nvidia"
 #define MIMI_SECRET_SEARCH_KEY      ""              // 可选：Brave Search API key
 #define MIMI_SECRET_PROXY_HOST      "10.0.0.1"      // 可选：代理地址
 #define MIMI_SECRET_PROXY_PORT      "7897"           // 可选：代理端口
@@ -129,7 +129,7 @@ mimi> clear_proxy                    # 清除代理
 mimi> wifi_set MySSID MyPassword   # 换 WiFi
 mimi> set_tg_token 123456:ABC...   # 换 Telegram Bot Token
 mimi> set_api_key sk-ant-api03-... # 换 API Key（Anthropic 或 OpenAI）
-mimi> set_model_provider openai    # 切换提供商（anthropic|openai）
+mimi> set_model_provider openai    # 切换提供商（anthropic|openai|openrouter|nvidia）
 mimi> set_model gpt-4o             # 换模型
 mimi> set_proxy 192.168.1.83 7897  # 设置代理
 mimi> clear_proxy                  # 清除代理
@@ -168,7 +168,7 @@ MimiClaw 把所有数据存为纯文本文件，可以直接读取和编辑：
 
 ## 工具
 
-MimiClaw 同时支持 Anthropic 和 OpenAI 的工具调用 — LLM 在对话中可以调用工具，循环执行直到任务完成（ReAct 模式）。
+MimiClaw 同时支持 Anthropic、OpenAI、OpenRouter 和 NVIDIA NIM 的工具调用 — LLM 在对话中可以调用工具，循环执行直到任务完成（ReAct 模式）。
 
 | 工具 | 说明 |
 |------|------|
@@ -198,7 +198,7 @@ MimiClaw 内置 cron 调度器，让 AI 可以自主安排任务。LLM 可以通
 - **OTA 更新** — WiFi 远程刷固件，无需 USB
 - **双核** — 网络 I/O 和 AI 处理分别跑在不同 CPU 核心
 - **HTTP 代理** — CONNECT 隧道，适配受限网络
-- **多提供商** — 同时支持 Anthropic (Claude) 和 OpenAI (GPT)，运行时可切换
+- **多提供商** — 同时支持 Anthropic (Claude)、OpenAI (GPT)、OpenRouter（免费额度可用）和 NVIDIA NIM（免费额度可用），运行时可切换
 - **定时任务** — AI 可自主创建周期性和一次性任务，重启后持久保存
 - **心跳服务** — 定期检查任务文件，驱动 AI 自主执行
 - **工具调用** — ReAct Agent 循环，两种提供商均支持工具调用
