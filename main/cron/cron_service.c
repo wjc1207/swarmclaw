@@ -341,14 +341,19 @@ esp_err_t cron_service_start(void)
         return ESP_OK;
     }
 
-    /* Recompute next_run for all enabled jobs that don't have one */
+    /* (Re)compute next_run for all enabled jobs.
+     * For EVERY jobs, always reset the timer relative to now so that jobs
+     * fire correctly even after reboot when the system clock may differ from
+     * when the job was originally created (e.g. no NTP sync yet).
+     * For AT jobs, only compute next_run if it is not set yet. */
     time_t now = time(NULL);
     for (int i = 0; i < s_job_count; i++) {
         cron_job_t *job = &s_jobs[i];
-        if (job->enabled && job->next_run <= 0) {
-            if (job->kind == CRON_KIND_EVERY) {
-                job->next_run = now + job->interval_s;
-            } else if (job->kind == CRON_KIND_AT && job->at_epoch > now) {
+        if (!job->enabled) continue;
+        if (job->kind == CRON_KIND_EVERY) {
+            job->next_run = now + job->interval_s;
+        } else if (job->kind == CRON_KIND_AT) {
+            if (job->next_run <= 0 && job->at_epoch > now) {
                 job->next_run = job->at_epoch;
             }
         }
