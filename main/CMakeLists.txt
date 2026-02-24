@@ -29,6 +29,7 @@ idf_component_register(
         "tools/tool_rgb.c"
         "tools/tool_capture.c"
         "skills/skill_loader.c"
+        "time/time_sync.c"
     INCLUDE_DIRS
         "."
     REQUIRES

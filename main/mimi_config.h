@@ -96,6 +96,7 @@
 #define MIMI_SNTP_SERVER             "pool.ntp.org"
 #define MIMI_SNTP_TIMEOUT_MS         10000
 #define MIMI_SNTP_SANE_EPOCH         1577836800  /* Jan 1, 2020 UTC */
+#define MIMI_SNTP_RESYNC_INTERVAL_MS (60 * 60 * 1000)  /* 1 hour */
 
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               "/spiffs/cron.json"
