@@ -92,6 +92,11 @@
 #define MIMI_CONTEXT_BUF_SIZE        (16 * 1024)
 #define MIMI_SESSION_MAX_MSGS        20
 
+/* SNTP */
+#define MIMI_SNTP_SERVER             "pool.ntp.org"
+#define MIMI_SNTP_TIMEOUT_MS         10000
+#define MIMI_SNTP_SANE_EPOCH         1577836800  /* Jan 1, 2020 UTC */
+
 /* Cron / Heartbeat */
 #define MIMI_CRON_FILE               "/spiffs/cron.json"
 #define MIMI_CRON_MAX_JOBS           16

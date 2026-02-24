@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -7,6 +8,7 @@
 #include "esp_system.h"
 #include "esp_heap_caps.h"
 #include "esp_spiffs.h"
+#include "esp_sntp.h"
 #include "nvs_flash.h"
 
 #include "mimi_config.h"
@@ -61,6 +63,36 @@ static esp_err_t init_spiffs(void)
     ESP_LOGI(TAG, "SPIFFS: total=%d, used=%d", (int)total, (int)used);
 
     return ESP_OK;
+}
+
+static void sntp_sync_time(void)
+{
+    ESP_LOGI(TAG, "Initializing SNTP (server: %s)...", MIMI_SNTP_SERVER);
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, MIMI_SNTP_SERVER);
+    esp_sntp_init();
+
+    time_t now = 0;
+    int retry = 0;
+    const int max_retries = MIMI_SNTP_TIMEOUT_MS / 1000;
+
+    while (time(&now) < MIMI_SNTP_SANE_EPOCH && retry < max_retries) {
+        retry++;
+        ESP_LOGI(TAG, "Waiting for SNTP sync... (%d/%d)", retry, max_retries);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    if (now >= MIMI_SNTP_SANE_EPOCH) {
+        setenv("TZ", MIMI_TIMEZONE, 1);
+        tzset();
+        struct tm timeinfo;
+        char buf[32];
+        localtime_r(&now, &timeinfo);
+        strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+        ESP_LOGI(TAG, "Time synchronized: %s (%s)", buf, MIMI_TIMEZONE);
+    } else {
+        ESP_LOGW(TAG, "SNTP sync timeout, system time may be invalid");
+    }
 }
 
 /* Outbound dispatch task: reads from outbound queue and routes to channels */
@@ -157,6 +189,9 @@ void app_main(void)
                 MIMI_OUTBOUND_STACK, NULL,
                 MIMI_OUTBOUND_PRIO, NULL, MIMI_OUTBOUND_CORE) == pdPASS)
                 ? ESP_OK : ESP_FAIL);
+
+            /* Synchronize system time via SNTP before starting cron */
+            sntp_sync_time();
 
             /* Start network-dependent services */
             ESP_ERROR_CHECK(agent_loop_start());
