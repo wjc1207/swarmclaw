@@ -307,10 +307,10 @@ static esp_err_t arxiv_via_proxy(const char *path, arxiv_buf_t *ab)
         "Accept: application/atom+xml\r\n"
         "Connection: close\r\n\r\n",
         path);
-+    if (hlen < 0 || hlen >= (int)sizeof(header)) {
-+        proxy_conn_close(conn);
-+        return ESP_FAIL;
-+    }
+    if (hlen < 0 || hlen >= (int)sizeof(header)) {
+        proxy_conn_close(conn);
+        return ESP_FAIL;
+    }
 
     if (proxy_conn_write(conn, header, hlen) < 0) {
         proxy_conn_close(conn);
