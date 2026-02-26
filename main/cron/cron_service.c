@@ -302,6 +302,7 @@ static void cron_process_due_jobs(void)
 static void cron_task_main(void *arg)
 {
     (void)arg;
+
     // initialize time by fetching from proxy or direct HTTP
     char time_buf[64];
     esp_err_t err = ESP_FAIL;
@@ -316,6 +317,23 @@ static void cron_task_main(void *arg)
         s_cron_task = NULL;
         vTaskDelete(NULL);
         return;
+    }
+
+    /* Recompute next_run for all enabled jobs that don't have one */
+    time_t now = time(NULL);
+    for (int i = 0; i < s_job_count; i++) {
+        cron_job_t *job = &s_jobs[i];
+        if (job->enabled && job->next_run <= 0) {
+            if (job->kind == CRON_KIND_EVERY) {
+                job->next_run = now + job->interval_s;
+            } else if (job->kind == CRON_KIND_AT && job->at_epoch > now) {
+                job->next_run = job->at_epoch;
+            } else if (job->kind == CRON_KIND_AT) {
+                /* at_epoch already in the past — disable the job */
+                job->enabled  = false;
+                job->next_run = 0;
+            }
+        }
     }
 
     while (1) {
@@ -355,19 +373,6 @@ esp_err_t cron_service_start(void)
     if (s_cron_task) {
         ESP_LOGW(TAG, "Cron task already running");
         return ESP_OK;
-    }
-
-    /* Recompute next_run for all enabled jobs that don't have one */
-    time_t now = time(NULL);
-    for (int i = 0; i < s_job_count; i++) {
-        cron_job_t *job = &s_jobs[i];
-        if (job->enabled && job->next_run <= 0) {
-            if (job->kind == CRON_KIND_EVERY) {
-                job->next_run = now + job->interval_s;
-            } else if (job->kind == CRON_KIND_AT && job->at_epoch > now) {
-                job->next_run = job->at_epoch;
-            }
-        }
     }
 
     BaseType_t ok = xTaskCreate(
