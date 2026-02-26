@@ -358,6 +358,14 @@ static esp_err_t arxiv_via_proxy(const char *path, arxiv_buf_t *ab)
 
 esp_err_t tool_arxiv_execute(const char *input_json, char *output, size_t output_size)
 {
+    if (!input_json || !output || output_size == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_mutex || !s_cache_val) {
+        snprintf(output, output_size, "Error: arXiv tool not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
     /* Parse input JSON */
     cJSON *input = cJSON_Parse(input_json);
     if (!input) {
