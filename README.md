@@ -19,7 +19,7 @@ Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-con
 
 - 🎨 **RGB LED Control** - Control WS2812 RGB LEDs with JSON commands
 - 📷 **ESP32-CAM Integration** - Capture images and return as base64-encoded data
-- 🚀 **LLM-Ready** - Seamlessly integrates with the mimiclaw framework
+- 🚀 **ArXiv Search** - Search papers in ArXiv website
 
 ## Quick Start
 
@@ -40,6 +40,11 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 ```c
 "Capture an image from the ESP32-CAM. "
 ```
+
+**ArXiv Search:**
+```c
+"Search papers about Finite Rate Innovation (FRI) on ArXiV website"
+``` 
 
 ## Configuration
 
