@@ -40,12 +40,13 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     arxiv_buf_t *ab = (arxiv_buf_t *)evt->user_data;
     if (evt->event_id == HTTP_EVENT_ON_DATA) {
-        size_t needed = ab->len + evt->data_len;
-        if (needed < ab->cap - 1) {
-            memcpy(ab->data + ab->len, evt->data, evt->data_len);
-            ab->len += evt->data_len;
-            ab->data[ab->len] = '\0';
-        }
+        size_t avail = (ab->cap > ab->len + 1) ? (ab->cap - ab->len - 1) : 0;
+        size_t copy = (evt->data_len < avail) ? evt->data_len : avail;
+        if (copy > 0) {
+            memcpy(ab->data + ab->len, evt->data, copy);
+            ab->len += copy;
+             ab->data[ab->len] = '\0';
+         }
     }
     return ESP_OK;
 }
@@ -319,10 +320,16 @@ static esp_err_t arxiv_via_proxy(const char *path, arxiv_buf_t *ab)
 
     char tmp[4096];
     size_t total = 0;
-    while (1) {
-        int n = proxy_conn_read(conn, tmp, sizeof(tmp), 15000);
-        if (n <= 0) break;
-        size_t copy = (total + (size_t)n < ab->cap - 1)
+    int idle_reads = 0;
+     while (1) {
+         int n = proxy_conn_read(conn, tmp, sizeof(tmp), 15000);
+        if (n < 0) break;
+        if (n == 0) {
+            if (++idle_reads >= 3) break;
+            continue;
+        }
+        idle_reads = 0;
+         size_t copy = (total + (size_t)n < ab->cap - 1)
                       ? (size_t)n
                       : ab->cap - 1 - total;
         if (copy > 0) {
