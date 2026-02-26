@@ -6,6 +6,8 @@ idf_component_register(
         "imu/I2C_Driver.c"
         "imu/QMI8658.c"
         "imu/imu_manager.c"
+        "display/Vernon_ST7789T/Vernon_ST7789T.c"
+        "display/display.c"
         "ui/config_screen.c"
         "bus/message_bus.c"
         "wifi/wifi_manager.c"
@@ -30,10 +32,13 @@ idf_component_register(
         "tools/tool_capture.c"
         "tools/tool_arxiv.c"
         "skills/skill_loader.c"
+        "rgb/rgb.c"
+    EMBED_FILES
+        "../assets/banner_320x172.rgb565"
     INCLUDE_DIRS
         "."
     REQUIRES
         nvs_flash esp_wifi esp_netif esp_http_client esp_http_server
         esp_https_ota esp_event json spiffs console vfs app_update esp-tls
-        driver esp_timer led_strip
+        driver esp_timer led_strip esp_lcd qrcode
 )
