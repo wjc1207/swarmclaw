@@ -55,11 +55,11 @@ Telegram App (User)
 └───────────────────────────────────────────────────┘
          │
          │  Anthropic Messages API (HTTPS)
-         │  + Brave Search API (HTTPS)
+         │  + Tavily / Brave Search API (HTTPS)
          ▼
-   ┌───────────┐   ┌──────────────┐
-   │ Claude API │   │ Brave Search │
-   └───────────┘   └──────────────┘
+   ┌───────────┐   ┌─────────────────────────┐
+   │ Claude API │   │ Tavily / Brave Search   │
+   └───────────┘   └─────────────────────────┘
 ```
 
 ---
@@ -78,7 +78,7 @@ Telegram App (User)
       i.   Call Claude API via HTTPS (non-streaming, with tools array)
       ii.  Parse JSON response → text blocks + tool_use blocks
       iii. If stop_reason == "tool_use":
-           - Execute each tool (e.g. web_search → Brave Search API)
+           - Execute each tool (e.g. web_search → Tavily or Brave Search API)
            - Append assistant content + tool_result to messages
            - Continue loop
       iv.  If stop_reason == "end_turn": break with final text
@@ -126,7 +126,7 @@ main/
 │   ├── tool_registry.h     Tool definition struct, register/dispatch API
 │   ├── tool_registry.c     Tool registration, JSON schema builder, dispatch by name
 │   ├── tool_web_search.h   Web search tool API
-│   └── tool_web_search.c   Brave Search API via HTTPS (direct + proxy)
+│   └── tool_web_search.c   Tavily (default) + Brave (optional) Search via HTTPS (direct + proxy)
 │
 ├── memory/
 │   ├── memory_store.h      Long-term + daily memory API
@@ -236,7 +236,8 @@ All configuration is done exclusively through `mimi_secrets.h` at build time. Th
 | `MIMI_SECRET_MODEL`         | Model ID (default: claude-opus-4-6)     |
 | `MIMI_SECRET_PROXY_HOST`    | HTTP proxy hostname/IP (optional)       |
 | `MIMI_SECRET_PROXY_PORT`    | HTTP proxy port (optional)              |
-| `MIMI_SECRET_SEARCH_KEY`    | Brave Search API key (optional)         |
+| `MIMI_SECRET_SEARCH_KEY`    | Search API key (optional)               |
+| `MIMI_SECRET_SEARCH_PROVIDER`| Search provider: "tavily" (default) or "brave" |
 
 NVS is still initialized (required by ESP-IDF WiFi internals) but is not used for application configuration.
 
@@ -391,7 +392,7 @@ The CLI provides debug and maintenance commands only. All configuration is done 
 | `providers/litellm_provider.py` | `llm/llm_proxy.c`         | Direct Anthropic API only    |
 | `config/schema.py`          | `mimi_config.h` + `mimi_secrets.h` | Build-time secrets only  |
 | `cli/commands.py`           | `cli/serial_cli.c`             | esp_console REPL             |
-| `agent/tools/*`             | `tools/tool_registry.c` + `tool_web_search.c` | web_search via Brave API |
+| `agent/tools/*`             | `tools/tool_registry.c` + `tool_web_search.c` | web_search via Tavily (default) / Brave |
 | `agent/subagent.py`         | *(not yet implemented)*        | See TODO.md                  |
 | `agent/skills.py`           | *(not yet implemented)*        | See TODO.md                  |
 | `cron/service.py`           | *(not yet implemented)*        | See TODO.md                  |
