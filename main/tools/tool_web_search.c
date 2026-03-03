@@ -243,7 +243,7 @@ static size_t url_encode(const char *src, char *dst, size_t dst_size)
     static const char hex[] = "0123456789ABCDEF";
     size_t pos = 0;
 
-    for (; *src && pos < dst_size - 3; src++) {
+    for (; *src && pos + 3 < dst_size; src++) {
         unsigned char c = (unsigned char)*src;
         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
             (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
