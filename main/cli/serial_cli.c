@@ -719,11 +719,11 @@ esp_err_t serial_cli_init(void)
     esp_console_cmd_register(&heap_cmd);
 
     /* set_search_key */
-    search_key_args.key = arg_str1(NULL, NULL, "<key>", "Brave Search API key");
+    search_key_args.key = arg_str1(NULL, NULL, "<key>", "Tavily Search API key");
     search_key_args.end = arg_end(1);
     esp_console_cmd_t search_key_cmd = {
         .command = "set_search_key",
-        .help = "Set Brave Search API key for web_search tool",
+        .help = "Set Tavily Search API key for web_search tool",
         .func = &cmd_set_search_key,
         .argtable = &search_key_args,
     };

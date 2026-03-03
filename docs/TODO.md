@@ -18,7 +18,7 @@
 
 ### [x] ~~Tool Registry + web_search Tool~~
 - Implemented: `tools/tool_registry.c` — tool registration, JSON schema builder, dispatch by name
-- Implemented: `tools/tool_web_search.c` — Brave Search API via HTTPS (direct + proxy support)
+- Implemented: `tools/tool_web_search.c` — Tavily Search API via HTTPS (direct + proxy support)
 
 ### [ ] More Built-in Tools
 - **nanobot built-in tools** not yet ported: `read_file`, `write_file`, `edit_file`, `list_dir`, `message`
@@ -139,13 +139,13 @@
 - [x] Message Bus (inbound/outbound queues)
 - [x] Agent Loop with ReAct tool use (multi-turn, max 10 iterations)
 - [x] Claude API (Anthropic Messages API, non-streaming, tool_use protocol)
-- [x] Tool Registry + web_search tool (Brave Search API)
+- [x] Tool Registry + web_search tool (Tavily Search API)
 - [x] Context Builder (system prompt + bootstrap files + memory + tool guidance)
 - [x] Memory Store (MEMORY.md + daily notes)
 - [x] Session Manager (JSONL per chat_id, ring buffer history)
 - [x] WebSocket Gateway (port 18789, JSON protocol)
 - [x] Serial CLI (esp_console, debug/maintenance commands)
-- [x] HTTP CONNECT Proxy (Telegram + Claude API + Brave Search via proxy tunnel)
+- [x] HTTP CONNECT Proxy (Telegram + Claude API + Tavily Search via proxy tunnel)
 - [x] OTA Update
 - [x] WiFi Manager (build-time credentials, exponential backoff)
 - [x] SPIFFS storage
