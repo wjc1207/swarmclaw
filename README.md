@@ -8,8 +8,7 @@ Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-con
 
 ## Features
 
-- 🔧 **Unified GPIO Tool** - Single `gpio` tool for all hardware I/O: GPIO, I²C, SPI, RGB/WS2812B, PWM, UART, 1-Wire
-- 🚀 **Web Search** - Search anything on the Internet
+- Run OpenClaw on a ￥30 chip.
 
 ## Quick Start
 
@@ -23,17 +22,27 @@ cd mimiclaw
 idf.py set-target esp32s3
 ```
 
-## Usage
+Then build and flash:
 
-**GPIO Control:**
-```c
-"Set GPIO pin 4 to output and drive it HIGH"
+```bash
+# Clean build (required after any mimi_secrets.h change)
+idf.py fullclean && idf.py build
+
+# Find your serial port
+ls /dev/cu.usb*          # macOS
+ls /dev/ttyACM*          # Linux
+
+# Flash and monitor (replace PORT with your port)
+# USB adapter: likely /dev/cu.usbmodem11401 (macOS) or /dev/ttyACM0 (Linux)
+idf.py -p PORT flash monitor
 ```
 
-**Web Search:**
-```c
-"What's going on in the world today?"
-``` 
+## Tools
+
+| Tool | Usage | 
+|----------|-------|
+| **GPIO Control** | Single `gpio` tool for all hardware I/O: GPIO, I²C, SPI, RGB/WS2812B, PWM, UART, 1-Wire | 
+| **Web Search** | Search anything on the Internet | 
 
 ## Supported LLM Providers
 
