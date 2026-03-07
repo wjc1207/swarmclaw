@@ -9,7 +9,6 @@ Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-con
 ## Features
 
 - 🎨 **RGB LED Control** - Control WS2812 RGB LEDs with JSON commands
-- 📷 **ESP32-CAM Integration** - Capture images and return as base64-encoded data
 - 🚀 **ArXiv Search** - Search papers in ArXiv website
 
 ## Quick Start
@@ -27,11 +26,6 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 "Turn RGB LED to a 'mys'(Swidish) color"
 ```
 
-**Camera Capture:**
-```c
-"Capture an image from the ESP32-CAM. "
-```
-
 **ArXiv Search:**
 ```c
 "Search papers about Finite Rate Innovation (FRI) on ArXiV website"
@@ -39,8 +33,7 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 
 ## Configuration
 
-Edit `tool_rgb.c` for GPIO pin and LED count.  
-Edit `tool_capture.c` for camera URL and image size limits.
+Edit `tool_rgb.c` for GPIO pin and LED count.
 
 ## Supported LLM Providers
 
@@ -62,7 +55,7 @@ Edit `tool_capture.c` for camera URL and image size limits.
 
 - ESP32 development board with PSRAM
 - WS2812 RGB LED (default GPIO 48)
-- ESP32-CAM module with HTTP server (for camera capture)
+
 
 ## License
 

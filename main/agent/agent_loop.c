@@ -158,41 +158,69 @@ static cJSON *build_tool_results(const llm_response_t *resp, const mimi_msg_t *m
 
         ESP_LOGI(TAG, "Tool %s result: %d bytes", call->name, (int)strlen(tool_output));
 
+        /* Determine if this tool result is an image for LLM vision */
+        bool is_image_result = false;
+        char media_type[64] = "image/jpeg";
+        const char *image_b64 = tool_output;
+
+        if (strcmp(call->name, "http_request") == 0) {
+            cJSON *tool_input_json = cJSON_Parse(tool_input);
+            if (tool_input_json) {
+                cJSON *enable_img = cJSON_GetObjectItem(tool_input_json, "enable_image_analysis");
+                if (cJSON_IsTrue(enable_img)) {
+                    is_image_result = true;
+                    /* Output format: "<media_type>\n<base64_data>" */
+                    char *newline = strchr(tool_output, '\n');
+                    if (newline && (size_t)(newline - tool_output) < sizeof(media_type)) {
+                        size_t mt_len = newline - tool_output;
+                        memcpy(media_type, tool_output, mt_len);
+                        media_type[mt_len] = '\0';
+                        image_b64 = newline + 1;
+                    }
+                }
+                cJSON_Delete(tool_input_json);
+            }
+        }
+
         /* Build tool_result block */
         cJSON *result_block = cJSON_CreateObject();
         cJSON_AddStringToObject(result_block, "type", "tool_result");
         cJSON_AddStringToObject(result_block, "tool_use_id", call->id);
 
-        if (is_anthropic && strcmp(call->name, "camera_capture") == 0) {
+        if (is_anthropic && is_image_result) {
             /* Anthropic: embed image as a base64 content-block array */
             cJSON *content_array = cJSON_CreateArray();
             cJSON *image_block = cJSON_CreateObject();
             cJSON_AddStringToObject(image_block, "type", "image");
             cJSON *source = cJSON_CreateObject();
             cJSON_AddStringToObject(source, "type", "base64");
-            cJSON_AddStringToObject(source, "media_type", "image/jpeg");
-            cJSON_AddStringToObject(source, "data", tool_output);
+            cJSON_AddStringToObject(source, "media_type", media_type);
+            cJSON_AddStringToObject(source, "data", image_b64);
             cJSON_AddItemToObject(image_block, "source", source);
             cJSON_AddItemToArray(content_array, image_block);
             cJSON_AddItemToObject(result_block, "content", content_array);
-        } else if (!is_anthropic && strcmp(call->name, "camera_capture") == 0) {
+        } else if (!is_anthropic && is_image_result) {
             /* OpenAI-compatible: image_url content array.
              * convert_messages_openai() will forward the array as-is on the
              * role=tool message, giving the model vision access to the image. */
-            static const char k_prefix[] = "data:image/jpeg;base64,";
-            size_t url_len = sizeof(k_prefix) - 1 + strlen(tool_output);
+            char prefix[80];
+            snprintf(prefix, sizeof(prefix), "data:%s;base64,", media_type);
+            size_t prefix_len = strlen(prefix);
+            size_t b64_len = strlen(image_b64);
+            size_t url_len = prefix_len + b64_len;
             char *url_buf = malloc(url_len + 1);
             if (url_buf) {
-                memcpy(url_buf, k_prefix, sizeof(k_prefix) - 1);
-                strcpy(url_buf + sizeof(k_prefix) - 1, tool_output);
+                memcpy(url_buf, prefix, prefix_len);
+                memcpy(url_buf + prefix_len, image_b64, b64_len);
+                url_buf[url_len] = '\0';
                 cJSON *content_array = cJSON_CreateArray();
-                cJSON *image_block = cJSON_CreateObject();
-                cJSON_AddStringToObject(image_block, "type", "image_url");
+                cJSON *img_block = cJSON_CreateObject();
+                cJSON_AddStringToObject(img_block, "type", "image_url");
                 cJSON *image_url = cJSON_CreateObject();
                 cJSON_AddStringToObject(image_url, "url", url_buf);
                 free(url_buf); /* cJSON_AddStringToObject copied the string */
-                cJSON_AddItemToObject(image_block, "image_url", image_url);
-                cJSON_AddItemToArray(content_array, image_block);
+                cJSON_AddItemToObject(img_block, "image_url", image_url);
+                cJSON_AddItemToArray(content_array, img_block);
                 cJSON_AddItemToObject(result_block, "content", content_array);
             } else {
                 cJSON_AddStringToObject(result_block, "content", "[image: out of memory]");

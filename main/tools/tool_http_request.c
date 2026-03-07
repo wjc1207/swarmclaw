@@ -9,10 +9,12 @@
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
 #include "cJSON.h"
+#include "mbedtls/base64.h"
 
 static const char *TAG = "http_request";
 
 #define HTTP_BUF_SIZE       (16 * 1024)
+#define HTTP_IMAGE_BUF_SIZE (200 * 1024)   /* 200KB for binary image data */
 #define HTTP_TIMEOUT_MS     15000
 
 /* ── Response accumulator ─────────────────────────────────────── */
@@ -245,6 +247,26 @@ static esp_err_t http_via_proxy(const char *url, const char *method,
     return ESP_OK;
 }
 
+/* ── Detect image media type from magic bytes ─────────────────── */
+
+static const char *detect_media_type(const uint8_t *data, size_t len)
+{
+    if (len >= 2 && data[0] == 0xFF && data[1] == 0xD8)
+        return "image/jpeg";
+    if (len >= 4 && data[0] == 0x89 && data[1] == 0x50 &&
+        data[2] == 0x4E && data[3] == 0x47)
+        return "image/png";
+    if (len >= 4 && data[0] == 'G' && data[1] == 'I' &&
+        data[2] == 'F' && data[3] == '8')
+        return "image/gif";
+    if (len >= 12 && data[0] == 'R' && data[1] == 'I' &&
+        data[2] == 'F' && data[3] == 'F' &&
+        data[8] == 'W' && data[9] == 'E' &&
+        data[10] == 'B' && data[11] == 'P')
+        return "image/webp";
+    return "image/jpeg";   /* default assumption */
+}
+
 /* ── Validate method ──────────────────────────────────────────── */
 
 static bool is_valid_method(const char *method)
@@ -307,15 +329,20 @@ esp_err_t tool_http_request_execute(const char *input_json, char *output, size_t
 
     ESP_LOGI(TAG, "HTTP %s %s", method, url);
 
-    /* Allocate response buffer from PSRAM */
+    /* Check enable_image_analysis flag */
+    cJSON *img_item = cJSON_GetObjectItem(input, "enable_image_analysis");
+    bool enable_image = cJSON_IsTrue(img_item);
+
+    /* Allocate response buffer from PSRAM (larger for image mode) */
+    size_t buf_size = enable_image ? HTTP_IMAGE_BUF_SIZE : HTTP_BUF_SIZE;
     http_buf_t hb = {0};
-    hb.data = heap_caps_calloc(1, HTTP_BUF_SIZE, MALLOC_CAP_SPIRAM);
+    hb.data = heap_caps_calloc(1, buf_size, MALLOC_CAP_SPIRAM);
     if (!hb.data) {
         cJSON_Delete(input);
         snprintf(output, output_size, "Error: Out of memory");
         return ESP_ERR_NO_MEM;
     }
-    hb.cap = HTTP_BUF_SIZE;
+    hb.cap = buf_size;
 
     /* Make HTTP request */
     int status = 0;
@@ -334,6 +361,56 @@ esp_err_t tool_http_request_execute(const char *input_json, char *output, size_t
         snprintf(output, output_size, "Error: HTTP request failed (err=%d)", (int)err);
         return err;
     }
+
+    if (enable_image) {
+        /* ── Image analysis mode: base64-encode the response body ── */
+        ESP_LOGI(TAG, "Image mode: %d bytes received", (int)hb.len);
+
+        const char *media_type = detect_media_type((const uint8_t *)hb.data, hb.len);
+
+        /* Write media type as first line */
+        size_t mt_len = strlen(media_type);
+        if (mt_len + 2 > output_size) {   /* media_type + '\n' + '\0' */
+            free(hb.data);
+            snprintf(output, output_size, "Error: Output buffer too small");
+            return ESP_ERR_NO_MEM;
+        }
+        memcpy(output, media_type, mt_len);
+        output[mt_len] = '\n';
+
+        /* Base64-encode into remaining output buffer */
+        size_t b64_len = 0;
+        mbedtls_base64_encode(NULL, 0, &b64_len,
+                              (const unsigned char *)hb.data, hb.len);
+
+        if (mt_len + 1 + b64_len + 1 > output_size) {
+            free(hb.data);
+            snprintf(output, output_size, "Error: Image too large to base64-encode");
+            ESP_LOGE(TAG, "Output buffer too small (%d needed)", (int)(mt_len + 1 + b64_len));
+            return ESP_ERR_NO_MEM;
+        }
+
+        int ret = mbedtls_base64_encode(
+            (unsigned char *)output + mt_len + 1,
+            output_size - mt_len - 1,
+            &b64_len,
+            (const unsigned char *)hb.data,
+            hb.len);
+
+        free(hb.data);
+
+        if (ret != 0) {
+            snprintf(output, output_size, "Error: Base64 encoding failed");
+            ESP_LOGE(TAG, "Base64 encode failed (ret=%d)", ret);
+            return ESP_FAIL;
+        }
+
+        output[mt_len + 1 + b64_len] = '\0';
+        ESP_LOGI(TAG, "Returning base64 image: %s, %d bytes", media_type, (int)b64_len);
+        return ESP_OK;
+    }
+
+    /* ── Normal text mode ── */
 
     /* Format output */
     size_t off = snprintf(output, output_size, "Status: %d\n\n", status);

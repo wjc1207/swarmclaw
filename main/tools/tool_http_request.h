@@ -11,6 +11,9 @@
  *                     - "method" (optional): GET, POST, PUT, DELETE, PATCH, HEAD (default: GET)
  *                     - "headers" (optional): object of key-value header pairs
  *                     - "body" (optional): request body string
+ *                     - "enable_image_analysis" (optional): boolean, when true the
+ *                       response is treated as binary image data, base64-encoded, and
+ *                       returned as "<media_type>\n<base64_data>" for LLM vision analysis.
  * @param output       Output buffer for response text
  * @param output_size  Size of output buffer
  * @return ESP_OK on success
