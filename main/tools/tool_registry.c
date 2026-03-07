@@ -5,6 +5,7 @@
 #include "tools/tool_cron.h"
 #include "tools/tool_gpio.h"
 #include "tools/tool_http_request.h"
+#include "tools/tool_script.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -12,7 +13,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 12
+#define MAX_TOOLS 14
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -251,6 +252,36 @@ esp_err_t tool_registry_init(void)
         .execute = tool_http_request_execute,
     };
     register_tool(&hr);
+
+    /* Register script_write */
+    mimi_tool_t sw = {
+        .name = "script_write",
+        .description = "Write a Lua script to SPIFFS. The script can use gpio, i2c, spi, rgb, pwm, sleep modules.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.lua\"},"
+            "\"content\":{\"type\":\"string\",\"description\":\"Full Lua source code\"}"
+            "},"
+            "\"required\":[\"path\",\"content\"]}",
+        .execute = tool_script_write_execute,
+    };
+    register_tool(&sw);
+
+    /* Register script_run */
+    mimi_tool_t sr = {
+        .name = "script_run",
+        .description = "Execute a Lua script on the ESP32-S3. Returns stdout output or error message.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.lua\"},"
+            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Max execution time in ms (default 5000)\"}"
+            "},"
+            "\"required\":[\"path\"]}",
+        .execute = tool_script_run_execute,
+    };
+    register_tool(&sr);
 
     // After registering all tools, build the JSON array string
     build_tools_json();
