@@ -348,10 +348,28 @@ esp_err_t tool_http_request_execute(const char *input_json, char *output, size_t
     int status = 0;
     esp_err_t err;
 
-    if (http_proxy_is_enabled()) {
-        err = http_via_proxy(url, method, headers, body, &hb, &status);
-    } else {
+    // url -> host -
+    const char *host = NULL;
+        if (strncmp(url, "https://", 8) == 0) {
+            host = url + 8;
+        } else if (strncmp(url, "http://", 7) == 0) {
+            host = url + 7;
+        } else {
+            free(hb.data);
+            cJSON_Delete(input);
+            snprintf(output, output_size, "Error: Invalid URL scheme");
+            return ESP_ERR_INVALID_ARG;
+        }
+
+    if (strncmp(host,"192.168.",8)==0) // bypass proxy for local addresses
+    {
         err = http_direct(url, method, headers, body, &hb, &status);
+    } else {
+        if (http_proxy_is_enabled()) {
+            err = http_via_proxy(url, method, headers, body, &hb, &status);
+        } else {
+            err = http_direct(url, method, headers, body, &hb, &status);
+        }
     }
 
     cJSON_Delete(input);
