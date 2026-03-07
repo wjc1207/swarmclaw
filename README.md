@@ -8,7 +8,8 @@ Inspired by [mimiclaw](https://github.com/memovai/mimiclaw) that enables LLM-con
 
 ## Features
 
-- 🎨 **RGB LED Control** - Control WS2812 RGB LEDs with JSON commands
+- 🔧 **Unified GPIO Tool** - Single `gpio` tool for all hardware I/O: GPIO, I²C, SPI, RGB/WS2812B, PWM, UART, 1-Wire
+- 🎨 **RGB LED Control** - Control WS2812 RGB LEDs via `gpio` tool actions
 - 🚀 **ArXiv Search** - Search papers in ArXiv website
 
 ## Quick Start
@@ -26,6 +27,11 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 "Turn RGB LED to a 'mys'(Swidish) color"
 ```
 
+**GPIO Control:**
+```c
+"Set GPIO pin 4 to output and drive it HIGH"
+```
+
 **ArXiv Search:**
 ```c
 "Search papers about Finite Rate Innovation (FRI) on ArXiV website"
@@ -33,7 +39,7 @@ git clone https://github.com/wjc1207/mimiclaw_DLC.git
 
 ## Configuration
 
-Edit `tool_rgb.c` for GPIO pin and LED count.
+Edit `tool_gpio.c` for default GPIO pin and LED count.
 
 ## Supported LLM Providers
 
