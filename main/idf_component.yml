@@ -4,5 +4,3 @@ dependencies:
   idf:
     version: '>=5.5.0,<5.6.0'
   espressif/led_strip: '*'
-  lua:
-    git: https://github.com/KamranAghlami/idf_component_lua.git

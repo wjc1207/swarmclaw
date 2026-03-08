@@ -1,5 +1,5 @@
 #include "tools/tool_script.h"
-#include "lua/lua_runner.h"
+#include "mpy/mpy_runner.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,14 +115,14 @@ esp_err_t tool_script_run_execute(const char *input_json,
     memcpy(path_buf, path, path_len + 1);
     cJSON_Delete(root);
 
-    char *lua_output = NULL;
-    esp_err_t err = lua_runner_exec(path_buf, timeout_ms, &lua_output);
+    char *script_output = NULL;
+    esp_err_t err = mpy_runner_exec(path_buf, timeout_ms, &script_output);
 
     if (err == ESP_OK) {
         /* Escape output for JSON */
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddBoolToObject(resp, "ok", 1);
-        cJSON_AddStringToObject(resp, "output", lua_output ? lua_output : "");
+        cJSON_AddStringToObject(resp, "output", script_output ? script_output : "");
         char *json_str = cJSON_PrintUnformatted(resp);
         if (json_str) {
             snprintf(output, output_size, "%s", json_str);
@@ -134,7 +134,7 @@ esp_err_t tool_script_run_execute(const char *input_json,
     } else {
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddBoolToObject(resp, "ok", 0);
-        cJSON_AddStringToObject(resp, "error", lua_output ? lua_output : "unknown error");
+        cJSON_AddStringToObject(resp, "error", script_output ? script_output : "unknown error");
         char *json_str = cJSON_PrintUnformatted(resp);
         if (json_str) {
             snprintf(output, output_size, "%s", json_str);
@@ -145,7 +145,7 @@ esp_err_t tool_script_run_execute(const char *input_json,
         cJSON_Delete(resp);
     }
 
-    free(lua_output);
+    free(script_output);
     ESP_LOGI(TAG, "script_run: %s → %s", path_buf, (err == ESP_OK) ? "ok" : "fail");
     return err;
 }

@@ -256,12 +256,12 @@ esp_err_t tool_registry_init(void)
     /* Register script_write */
     mimi_tool_t sw = {
         .name = "script_write",
-        .description = "Write a Lua script to SPIFFS. The script can use gpio, i2c, spi, rgb, pwm, sleep modules.",
+        .description = "Write a Python script to SPIFFS. The script can import gpio, i2c, spi, rgb, pwm, sleep modules to control hardware.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
-            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.lua\"},"
-            "\"content\":{\"type\":\"string\",\"description\":\"Full Lua source code\"}"
+            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.py\"},"
+            "\"content\":{\"type\":\"string\",\"description\":\"Full Python source code\"}"
             "},"
             "\"required\":[\"path\",\"content\"]}",
         .execute = tool_script_write_execute,
@@ -271,11 +271,11 @@ esp_err_t tool_registry_init(void)
     /* Register script_run */
     mimi_tool_t sr = {
         .name = "script_run",
-        .description = "Execute a Lua script on the ESP32-S3. Returns stdout output or error message.",
+        .description = "Execute a Python script on the ESP32-S3. Returns print() output or error.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
-            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.lua\"},"
+            "\"path\":{\"type\":\"string\",\"description\":\"e.g. /spiffs/scripts/blink.py\"},"
             "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Max execution time in ms (default 5000)\"}"
             "},"
             "\"required\":[\"path\"]}",
