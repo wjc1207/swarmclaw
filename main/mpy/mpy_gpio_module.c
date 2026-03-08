@@ -37,7 +37,7 @@ static int gpio_json_exec_result_int(const char *json_str) {
 /* ── gpio module ──────────────────────────────────────────── */
 
 // gpio.write(pin, value)
-STATIC mp_obj_t mpy_gpio_write(mp_obj_t pin_o, mp_obj_t val_o) {
+static mp_obj_t mpy_gpio_write(mp_obj_t pin_o, mp_obj_t val_o) {
     char json[128];
     snprintf(json, sizeof(json),
              "{\"action\":\"gpio_write\",\"pin\":%d,\"value\":%d}",
@@ -45,20 +45,20 @@ STATIC mp_obj_t mpy_gpio_write(mp_obj_t pin_o, mp_obj_t val_o) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_write_obj, mpy_gpio_write);
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_write_obj, mpy_gpio_write);
 
 // gpio.read(pin) → int
-STATIC mp_obj_t mpy_gpio_read(mp_obj_t pin_o) {
+static mp_obj_t mpy_gpio_read(mp_obj_t pin_o) {
     char json[128];
     snprintf(json, sizeof(json),
              "{\"action\":\"gpio_read\",\"pin\":%d}",
              mp_obj_get_int(pin_o));
     return mp_obj_new_int(gpio_json_exec_result_int(json));
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mpy_gpio_read_obj, mpy_gpio_read);
+static MP_DEFINE_CONST_FUN_OBJ_1(mpy_gpio_read_obj, mpy_gpio_read);
 
 // gpio.set_dir(pin, direction_str)
-STATIC mp_obj_t mpy_gpio_set_dir(mp_obj_t pin_o, mp_obj_t dir_o) {
+static mp_obj_t mpy_gpio_set_dir(mp_obj_t pin_o, mp_obj_t dir_o) {
     const char *dir = mp_obj_str_get_str(dir_o);
     char json[128];
     const char *direction = "OUT";
@@ -71,10 +71,10 @@ STATIC mp_obj_t mpy_gpio_set_dir(mp_obj_t pin_o, mp_obj_t dir_o) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_set_dir_obj, mpy_gpio_set_dir);
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_set_dir_obj, mpy_gpio_set_dir);
 
 // gpio.set_pull(pin, pull_str)
-STATIC mp_obj_t mpy_gpio_set_pull(mp_obj_t pin_o, mp_obj_t pull_o) {
+static mp_obj_t mpy_gpio_set_pull(mp_obj_t pin_o, mp_obj_t pull_o) {
     const char *pull = mp_obj_str_get_str(pull_o);
     char json[128];
     snprintf(json, sizeof(json),
@@ -83,16 +83,16 @@ STATIC mp_obj_t mpy_gpio_set_pull(mp_obj_t pin_o, mp_obj_t pull_o) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_set_pull_obj, mpy_gpio_set_pull);
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_set_pull_obj, mpy_gpio_set_pull);
 
-STATIC const mp_rom_map_elem_t gpio_module_globals_table[] = {
+static const mp_rom_map_elem_t gpio_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),  MP_ROM_QSTR(MP_QSTR_gpio) },
     { MP_ROM_QSTR(MP_QSTR_write),     MP_ROM_PTR(&mpy_gpio_write_obj) },
     { MP_ROM_QSTR(MP_QSTR_read),      MP_ROM_PTR(&mpy_gpio_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_dir),   MP_ROM_PTR(&mpy_gpio_set_dir_obj) },
     { MP_ROM_QSTR(MP_QSTR_set_pull),  MP_ROM_PTR(&mpy_gpio_set_pull_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(gpio_module_globals, gpio_module_globals_table);
+static MP_DEFINE_CONST_DICT(gpio_module_globals, gpio_module_globals_table);
 const mp_obj_module_t mpy_gpio_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&gpio_module_globals,
@@ -102,7 +102,7 @@ MP_REGISTER_MODULE(MP_QSTR_gpio, mpy_gpio_module);
 /* ── i2c module ───────────────────────────────────────────── */
 
 // i2c.write(sda, scl, addr, data_list, freq)
-STATIC mp_obj_t mpy_i2c_write(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mpy_i2c_write(size_t n_args, const mp_obj_t *args) {
     int sda  = mp_obj_get_int(args[0]);
     int scl  = mp_obj_get_int(args[1]);
     int addr = mp_obj_get_int(args[2]);
@@ -132,10 +132,10 @@ STATIC mp_obj_t mpy_i2c_write(size_t n_args, const mp_obj_t *args) {
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_i2c_write_obj, 4, 5, mpy_i2c_write);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_i2c_write_obj, 4, 5, mpy_i2c_write);
 
 // i2c.read(sda, scl, addr, length, freq)
-STATIC mp_obj_t mpy_i2c_read(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mpy_i2c_read(size_t n_args, const mp_obj_t *args) {
     int sda  = mp_obj_get_int(args[0]);
     int scl  = mp_obj_get_int(args[1]);
     int addr = mp_obj_get_int(args[2]);
@@ -149,14 +149,14 @@ STATIC mp_obj_t mpy_i2c_read(size_t n_args, const mp_obj_t *args) {
              sda, scl, addr, len, freq);
     return mp_obj_new_int(gpio_json_exec_result_int(json));
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_i2c_read_obj, 4, 5, mpy_i2c_read);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_i2c_read_obj, 4, 5, mpy_i2c_read);
 
-STATIC const mp_rom_map_elem_t i2c_module_globals_table[] = {
+static const mp_rom_map_elem_t i2c_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_i2c) },
     { MP_ROM_QSTR(MP_QSTR_write),    MP_ROM_PTR(&mpy_i2c_write_obj) },
     { MP_ROM_QSTR(MP_QSTR_read),     MP_ROM_PTR(&mpy_i2c_read_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(i2c_module_globals, i2c_module_globals_table);
+static MP_DEFINE_CONST_DICT(i2c_module_globals, i2c_module_globals_table);
 const mp_obj_module_t mpy_i2c_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&i2c_module_globals,
@@ -166,7 +166,7 @@ MP_REGISTER_MODULE(MP_QSTR_i2c, mpy_i2c_module);
 /* ── spi module ───────────────────────────────────────────── */
 
 // spi.transfer(mosi, miso, sclk, cs, tx_list)
-STATIC mp_obj_t mpy_spi_transfer(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mpy_spi_transfer(size_t n_args, const mp_obj_t *args) {
     int mosi = mp_obj_get_int(args[0]);
     int miso = mp_obj_get_int(args[1]);
     int sclk = mp_obj_get_int(args[2]);
@@ -197,13 +197,13 @@ STATIC mp_obj_t mpy_spi_transfer(size_t n_args, const mp_obj_t *args) {
     }
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_spi_transfer_obj, 5, 5, mpy_spi_transfer);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_spi_transfer_obj, 5, 5, mpy_spi_transfer);
 
-STATIC const mp_rom_map_elem_t spi_module_globals_table[] = {
+static const mp_rom_map_elem_t spi_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_spi) },
     { MP_ROM_QSTR(MP_QSTR_transfer),    MP_ROM_PTR(&mpy_spi_transfer_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(spi_module_globals, spi_module_globals_table);
+static MP_DEFINE_CONST_DICT(spi_module_globals, spi_module_globals_table);
 const mp_obj_module_t mpy_spi_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&spi_module_globals,
@@ -213,7 +213,7 @@ MP_REGISTER_MODULE(MP_QSTR_spi, mpy_spi_module);
 /* ── rgb module ───────────────────────────────────────────── */
 
 // rgb.fill(pin, n, r, g, b)
-STATIC mp_obj_t mpy_rgb_fill(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mpy_rgb_fill(size_t n_args, const mp_obj_t *args) {
     char json[256];
     snprintf(json, sizeof(json),
              "{\"action\":\"rgb_fill\",\"pin\":%d,\"num_pixels\":%d,"
@@ -224,10 +224,10 @@ STATIC mp_obj_t mpy_rgb_fill(size_t n_args, const mp_obj_t *args) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_rgb_fill_obj, 5, 5, mpy_rgb_fill);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_rgb_fill_obj, 5, 5, mpy_rgb_fill);
 
 // rgb.show(pin, n)
-STATIC mp_obj_t mpy_rgb_show(mp_obj_t pin_o, mp_obj_t n_o) {
+static mp_obj_t mpy_rgb_show(mp_obj_t pin_o, mp_obj_t n_o) {
     char json[128];
     snprintf(json, sizeof(json),
              "{\"action\":\"rgb_show\",\"pin\":%d,\"num_pixels\":%d}",
@@ -235,14 +235,14 @@ STATIC mp_obj_t mpy_rgb_show(mp_obj_t pin_o, mp_obj_t n_o) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_2(mpy_rgb_show_obj, mpy_rgb_show);
+static MP_DEFINE_CONST_FUN_OBJ_2(mpy_rgb_show_obj, mpy_rgb_show);
 
-STATIC const mp_rom_map_elem_t rgb_module_globals_table[] = {
+static const mp_rom_map_elem_t rgb_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_rgb) },
     { MP_ROM_QSTR(MP_QSTR_fill),     MP_ROM_PTR(&mpy_rgb_fill_obj) },
     { MP_ROM_QSTR(MP_QSTR_show),     MP_ROM_PTR(&mpy_rgb_show_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(rgb_module_globals, rgb_module_globals_table);
+static MP_DEFINE_CONST_DICT(rgb_module_globals, rgb_module_globals_table);
 const mp_obj_module_t mpy_rgb_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&rgb_module_globals,
@@ -252,7 +252,7 @@ MP_REGISTER_MODULE(MP_QSTR_rgb, mpy_rgb_module);
 /* ── pwm module ───────────────────────────────────────────── */
 
 // pwm.start(pin, freq, duty)
-STATIC mp_obj_t mpy_pwm_start(mp_obj_t pin_o, mp_obj_t freq_o, mp_obj_t duty_o) {
+static mp_obj_t mpy_pwm_start(mp_obj_t pin_o, mp_obj_t freq_o, mp_obj_t duty_o) {
     char json[128];
     snprintf(json, sizeof(json),
              "{\"action\":\"pwm_start\",\"pin\":%d,\"freq\":%d,\"duty\":%d}",
@@ -260,10 +260,10 @@ STATIC mp_obj_t mpy_pwm_start(mp_obj_t pin_o, mp_obj_t freq_o, mp_obj_t duty_o) 
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_3(mpy_pwm_start_obj, mpy_pwm_start);
+static MP_DEFINE_CONST_FUN_OBJ_3(mpy_pwm_start_obj, mpy_pwm_start);
 
 // pwm.stop(pin)
-STATIC mp_obj_t mpy_pwm_stop(mp_obj_t pin_o) {
+static mp_obj_t mpy_pwm_stop(mp_obj_t pin_o) {
     char json[128];
     snprintf(json, sizeof(json),
              "{\"action\":\"pwm_stop\",\"pin\":%d}",
@@ -271,14 +271,14 @@ STATIC mp_obj_t mpy_pwm_stop(mp_obj_t pin_o) {
     gpio_json_exec(json);
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mpy_pwm_stop_obj, mpy_pwm_stop);
+static MP_DEFINE_CONST_FUN_OBJ_1(mpy_pwm_stop_obj, mpy_pwm_stop);
 
-STATIC const mp_rom_map_elem_t pwm_module_globals_table[] = {
+static const mp_rom_map_elem_t pwm_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_pwm) },
     { MP_ROM_QSTR(MP_QSTR_start),    MP_ROM_PTR(&mpy_pwm_start_obj) },
     { MP_ROM_QSTR(MP_QSTR_stop),     MP_ROM_PTR(&mpy_pwm_stop_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(pwm_module_globals, pwm_module_globals_table);
+static MP_DEFINE_CONST_DICT(pwm_module_globals, pwm_module_globals_table);
 const mp_obj_module_t mpy_pwm_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&pwm_module_globals,
@@ -288,17 +288,17 @@ MP_REGISTER_MODULE(MP_QSTR_pwm, mpy_pwm_module);
 /* ── sleep module ─────────────────────────────────────────── */
 
 // sleep.ms(ms)
-STATIC mp_obj_t mpy_sleep_ms(mp_obj_t ms_o) {
+static mp_obj_t mpy_sleep_ms(mp_obj_t ms_o) {
     vTaskDelay(pdMS_TO_TICKS(mp_obj_get_int(ms_o)));
     return mp_const_none;
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mpy_sleep_ms_obj, mpy_sleep_ms);
+static MP_DEFINE_CONST_FUN_OBJ_1(mpy_sleep_ms_obj, mpy_sleep_ms);
 
-STATIC const mp_rom_map_elem_t sleep_module_globals_table[] = {
+static const mp_rom_map_elem_t sleep_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sleep) },
     { MP_ROM_QSTR(MP_QSTR_ms),       MP_ROM_PTR(&mpy_sleep_ms_obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(sleep_module_globals, sleep_module_globals_table);
+static MP_DEFINE_CONST_DICT(sleep_module_globals, sleep_module_globals_table);
 const mp_obj_module_t mpy_sleep_module = {
     .base    = { &mp_type_module },
     .globals = (mp_obj_dict_t *)&sleep_module_globals,
