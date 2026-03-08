@@ -309,11 +309,7 @@ qstr qstr_from_str(const char *str) {
     return qstr_from_strn(str, strlen(str));
 }
 
-<<<<<<< HEAD
 qstr qstr_from_strn(const char *str, size_t len) {
-=======
-static qstr qstr_from_strn_helper(const char *str, size_t len, bool data_is_static) {
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     QSTR_ENTER();
     qstr q = qstr_find_strn(str, len);
     if (q == 0) {
@@ -325,15 +321,6 @@ static qstr qstr_from_strn_helper(const char *str, size_t len, bool data_is_stat
             mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT("name too long"));
         }
 
-<<<<<<< HEAD
-=======
-        if (data_is_static) {
-            // Given string data will be forever available so use it directly.
-            assert(str[len] == '\0');
-            goto add;
-        }
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         // compute number of bytes needed to intern this string
         size_t n_bytes = len + 1;
 
@@ -377,33 +364,12 @@ static qstr qstr_from_strn_helper(const char *str, size_t len, bool data_is_stat
         // store the interned strings' data
         memcpy(q_ptr, str, len);
         q_ptr[len] = '\0';
-<<<<<<< HEAD
         q = qstr_add(len, q_ptr);
-=======
-        str = q_ptr;
-
-    add:
-        q = qstr_add(len, str);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     }
     QSTR_EXIT();
     return q;
 }
 
-<<<<<<< HEAD
-=======
-qstr qstr_from_strn(const char *str, size_t len) {
-    return qstr_from_strn_helper(str, len, false);
-}
-
-#if MICROPY_VFS_ROM
-// Create a new qstr that can forever reference the given string data.
-qstr qstr_from_strn_static(const char *str, size_t len) {
-    return qstr_from_strn_helper(str, len, true);
-}
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 mp_uint_t qstr_hash(qstr q) {
     const qstr_pool_t *pool = find_qstr(&q);
     #if MICROPY_QSTR_BYTES_IN_HASH

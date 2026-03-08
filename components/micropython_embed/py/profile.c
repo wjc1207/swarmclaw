@@ -38,14 +38,9 @@
 #endif
 
 #define prof_trace_cb MP_STATE_THREAD(prof_trace_callback)
-<<<<<<< HEAD
 #define QSTR_MAP(context, idx) (context->constants.qstr_table[idx])
 
 static uint mp_prof_bytecode_lineno(const mp_raw_code_t *rc, size_t bc) {
-=======
-
-uint mp_prof_bytecode_lineno(const mp_raw_code_t *rc, size_t bc) {
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     const mp_bytecode_prelude_t *prelude = &rc->prelude;
     return mp_bytecode_get_source_line(prelude->line_info, prelude->line_info_top, bc);
 }
@@ -74,7 +69,6 @@ void mp_prof_extract_prelude(const byte *bytecode, mp_bytecode_prelude_t *prelud
 }
 
 /******************************************************************************/
-<<<<<<< HEAD
 // code object
 
 static void code_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t kind) {
@@ -206,8 +200,6 @@ mp_obj_t mp_obj_new_code(const mp_module_context_t *context, const mp_raw_code_t
 }
 
 /******************************************************************************/
-=======
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // frame object
 
 static void frame_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t kind) {
@@ -219,15 +211,9 @@ static void frame_print(const mp_print_t *print, mp_obj_t o_in, mp_print_kind_t 
     mp_printf(print,
         "<frame at 0x%p, file '%q', line %d, code %q>",
         frame,
-<<<<<<< HEAD
         QSTR_MAP(code->context, 0),
         frame->lineno,
         QSTR_MAP(code->context, prelude->qstr_block_name_idx)
-=======
-        MP_CODE_QSTR_MAP(code->context, 0),
-        frame->lineno,
-        MP_CODE_QSTR_MAP(code->context, prelude->qstr_block_name_idx)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         );
 }
 
@@ -279,11 +265,7 @@ mp_obj_t mp_obj_new_frame(const mp_code_state_t *code_state) {
         return MP_OBJ_NULL;
     }
 
-<<<<<<< HEAD
     mp_obj_code_t *code = o->code = MP_OBJ_TO_PTR(mp_obj_new_code(code_state->fun_bc->context, code_state->fun_bc->rc));
-=======
-    mp_obj_code_t *code = o->code = MP_OBJ_TO_PTR(mp_obj_new_code(code_state->fun_bc->context, code_state->fun_bc->rc, false));
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     if (code == NULL) {
         return MP_OBJ_NULL;
     }

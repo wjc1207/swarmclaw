@@ -48,15 +48,6 @@ void mp_thread_mutex_init(mp_thread_mutex_t *mutex);
 int mp_thread_mutex_lock(mp_thread_mutex_t *mutex, int wait);
 void mp_thread_mutex_unlock(mp_thread_mutex_t *mutex);
 
-<<<<<<< HEAD
-=======
-#if MICROPY_PY_THREAD_RECURSIVE_MUTEX
-void mp_thread_recursive_mutex_init(mp_thread_recursive_mutex_t *mutex);
-int mp_thread_recursive_mutex_lock(mp_thread_recursive_mutex_t *mutex, int wait);
-void mp_thread_recursive_mutex_unlock(mp_thread_recursive_mutex_t *mutex);
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #endif // MICROPY_PY_THREAD
 
 #if MICROPY_PY_THREAD && MICROPY_PY_THREAD_GIL

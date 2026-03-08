@@ -30,11 +30,7 @@
 // as well as a fallback to generate MICROPY_GIT_TAG if the git repo or tags
 // are unavailable.
 #define MICROPY_VERSION_MAJOR 1
-<<<<<<< HEAD
 #define MICROPY_VERSION_MINOR 24
-=======
-#define MICROPY_VERSION_MINOR 25
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #define MICROPY_VERSION_MICRO 0
 #define MICROPY_VERSION_PRERELEASE 0
 
@@ -346,14 +342,6 @@
 #define MICROPY_PERSISTENT_CODE_SAVE_FILE (0)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to support converting functions to persistent code (bytes)
-#ifndef MICROPY_PERSISTENT_CODE_SAVE_FUN
-#define MICROPY_PERSISTENT_CODE_SAVE_FUN (MICROPY_PY_MARSHAL)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Whether generated code can persist independently of the VM/runtime instance
 // This is enabled automatically when needed by other features
 #ifndef MICROPY_PERSISTENT_CODE
@@ -423,14 +411,6 @@
 #define MICROPY_EMIT_RV32 (0)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to enable the RISC-V RV32 inline assembler
-#ifndef MICROPY_EMIT_INLINE_RV32
-#define MICROPY_EMIT_INLINE_RV32 (0)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Convenience definition for whether any native emitter is enabled
 #define MICROPY_EMIT_NATIVE (MICROPY_EMIT_X64 || MICROPY_EMIT_X86 || MICROPY_EMIT_THUMB || MICROPY_EMIT_ARM || MICROPY_EMIT_XTENSA || MICROPY_EMIT_XTENSAWIN || MICROPY_EMIT_RV32 || MICROPY_EMIT_NATIVE_DEBUG)
 
@@ -440,11 +420,7 @@
 #define MICROPY_EMIT_NATIVE_PRELUDE_SEPARATE_FROM_MACHINE_CODE (MICROPY_EMIT_XTENSAWIN)
 
 // Convenience definition for whether any inline assembler emitter is enabled
-<<<<<<< HEAD
 #define MICROPY_EMIT_INLINE_ASM (MICROPY_EMIT_INLINE_THUMB || MICROPY_EMIT_INLINE_XTENSA)
-=======
-#define MICROPY_EMIT_INLINE_ASM (MICROPY_EMIT_INLINE_THUMB || MICROPY_EMIT_INLINE_XTENSA || MICROPY_EMIT_INLINE_RV32)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 
 // Convenience definition for whether any native or inline assembler emitter is enabled
 #define MICROPY_EMIT_MACHINE_CODE (MICROPY_EMIT_NATIVE || MICROPY_EMIT_INLINE_ASM)
@@ -1015,19 +991,6 @@ typedef double mp_float_t;
 #define MICROPY_VFS (0)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to include support for writable filesystems.
-#ifndef MICROPY_VFS_WRITABLE
-#define MICROPY_VFS_WRITABLE (1)
-#endif
-
-// Whether to enable the mp_vfs_rom_ioctl C function, and vfs.rom_ioctl Python function
-#ifndef MICROPY_VFS_ROM_IOCTL
-#define MICROPY_VFS_ROM_IOCTL (MICROPY_VFS_ROM)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Support for VFS POSIX component, to mount a POSIX filesystem within VFS
 #ifndef MICROPY_VFS_POSIX
 #define MICROPY_VFS_POSIX (0)
@@ -1048,14 +1011,6 @@ typedef double mp_float_t;
 #define MICROPY_VFS_LFS2 (0)
 #endif
 
-<<<<<<< HEAD
-=======
-// Support for ROMFS.
-#ifndef MICROPY_VFS_ROM
-#define MICROPY_VFS_ROM (0)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 /*****************************************************************************/
 /* Fine control over Python builtins, classes, modules, etc                  */
 
@@ -1071,14 +1026,6 @@ typedef double mp_float_t;
 #define MICROPY_PY_FUNCTION_ATTRS (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EXTRA_FEATURES)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to implement the __code__ attribute on functions, and function constructor
-#ifndef MICROPY_PY_FUNCTION_ATTRS_CODE
-#define MICROPY_PY_FUNCTION_ATTRS_CODE (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_FULL_FEATURES)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Whether to support the descriptors __get__, __set__, __delete__
 // This costs some code size and makes load/store/delete of instance
 // attributes slower for the classes that use this feature
@@ -1167,18 +1114,6 @@ typedef double mp_float_t;
 #define MICROPY_PY_BUILTINS_BYTEARRAY (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_CORE_FEATURES)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to support code objects, and how many features they have
-#define MICROPY_PY_BUILTINS_CODE_NONE       (0)
-#define MICROPY_PY_BUILTINS_CODE_MINIMUM    (1)
-#define MICROPY_PY_BUILTINS_CODE_BASIC      (2)
-#define MICROPY_PY_BUILTINS_CODE_FULL       (3)
-#ifndef MICROPY_PY_BUILTINS_CODE
-#define MICROPY_PY_BUILTINS_CODE            (MICROPY_PY_SYS_SETTRACE ? MICROPY_PY_BUILTINS_CODE_FULL : (MICROPY_PY_FUNCTION_ATTRS_CODE ? MICROPY_PY_BUILTINS_CODE_BASIC : (MICROPY_PY_BUILTINS_COMPILE ? MICROPY_PY_BUILTINS_CODE_MINIMUM : MICROPY_PY_BUILTINS_CODE_NONE)))
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Whether to support dict.fromkeys() class method
 #ifndef MICROPY_PY_BUILTINS_DICT_FROMKEYS
 #define MICROPY_PY_BUILTINS_DICT_FROMKEYS (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_CORE_FEATURES)
@@ -1241,11 +1176,7 @@ typedef double mp_float_t;
 
 // Support for calling next() with second argument
 #ifndef MICROPY_PY_BUILTINS_NEXT2
-<<<<<<< HEAD
 #define MICROPY_PY_BUILTINS_NEXT2 (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EVERYTHING)
-=======
-#define MICROPY_PY_BUILTINS_NEXT2 (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_BASIC_FEATURES)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #endif
 
 // Whether to support rounding of integers (incl bignum); eg round(123,-1)=120
@@ -1417,14 +1348,6 @@ typedef double mp_float_t;
 #define MICROPY_PY_COLLECTIONS_NAMEDTUPLE__ASDICT (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EVERYTHING)
 #endif
 
-<<<<<<< HEAD
-=======
-// Whether to provide "marshal" module
-#ifndef MICROPY_PY_MARSHAL
-#define MICROPY_PY_MARSHAL (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_EVERYTHING)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Whether to provide "math" module
 #ifndef MICROPY_PY_MATH
 #define MICROPY_PY_MATH (MICROPY_CONFIG_ROM_LEVEL_AT_LEAST_CORE_FEATURES)
@@ -1691,14 +1614,6 @@ typedef double mp_float_t;
 #define MICROPY_PY_THREAD_GIL_VM_DIVISOR (32)
 #endif
 
-<<<<<<< HEAD
-=======
-// Is a recursive mutex type in use?
-#ifndef MICROPY_PY_THREAD_RECURSIVE_MUTEX
-#define MICROPY_PY_THREAD_RECURSIVE_MUTEX (MICROPY_PY_THREAD && !MICROPY_PY_THREAD_GIL)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // Extended modules
 
 #ifndef MICROPY_PY_ASYNCIO

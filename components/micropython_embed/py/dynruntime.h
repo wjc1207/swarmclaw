@@ -28,17 +28,6 @@
 
 // This header file contains definitions to dynamically implement the static
 // MicroPython runtime API defined in py/obj.h and py/runtime.h.
-<<<<<<< HEAD
-=======
-//
-// All of the symbols made available in this header are overriding those defined
-// in py/obj.h and py/runtime.h.  This is done with macros.  For macros that
-// would be too complicated (usually more than a single expression), they call a
-// static-inline function for the implementation.  This function has the same
-// name as the macro (hence the same name as a public API function) but with
-// "_dyn" appended. For example, the m_malloc() macro calls the m_malloc_dyn()
-// static-inline function.
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 
 #include "py/binary.h"
 #include "py/nativeglue.h"
@@ -50,13 +39,6 @@
 #error "dynruntime.h included in non-dynamic-module build."
 #endif
 
-<<<<<<< HEAD
-=======
-#if MICROPY_MALLOC_USES_ALLOCATED_SIZE
-#error "MICROPY_MALLOC_USES_ALLOCATED_SIZE must be disable in a dynamic-module build."
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #undef MP_ROM_QSTR
 #undef MP_OBJ_QSTR_VALUE
 #undef MP_OBJ_NEW_QSTR
@@ -70,7 +52,6 @@
 /******************************************************************************/
 // Memory allocation
 
-<<<<<<< HEAD
 #define m_malloc(n)                     (m_malloc_dyn((n)))
 #define m_free(ptr)                     (m_free_dyn((ptr)))
 #define m_realloc(ptr, new_num_bytes)   (m_realloc_dyn((ptr), (new_num_bytes)))
@@ -78,34 +59,6 @@
 static inline void *m_malloc_dyn(size_t n) {
     // TODO won't raise on OOM
     return mp_fun_table.realloc_(NULL, n, false);
-=======
-#define m_malloc_fail(num_bytes)        (m_malloc_fail_dyn((num_bytes)))
-#define m_malloc(n)                     (m_malloc_dyn((n)))
-#define m_free(ptr)                     (m_free_dyn((ptr)))
-#define m_realloc(ptr, new_num_bytes)   (m_realloc_dyn((ptr), (new_num_bytes)))
-#define m_realloc_maybe(ptr, new_num_bytes, allow_move) (m_realloc_maybe_dyn((ptr), (new_num_bytes), (allow_move)))
-
-static NORETURN inline void m_malloc_fail_dyn(size_t num_bytes) {
-    mp_fun_table.raise_msg(
-        mp_fun_table.load_global(MP_QSTR_MemoryError),
-        "memory allocation failed");
-}
-
-static inline void *m_realloc_maybe_dyn(void *ptr, size_t new_num_bytes, bool allow_move) {
-    return mp_fun_table.realloc_(ptr, new_num_bytes, allow_move);
-}
-
-static inline void *m_realloc_checked_dyn(void *ptr, size_t new_num_bytes, bool allow_move) {
-    ptr = m_realloc_maybe(ptr, new_num_bytes, allow_move);
-    if (ptr == NULL && new_num_bytes != 0) {
-        m_malloc_fail(new_num_bytes);
-    }
-    return ptr;
-}
-
-static inline void *m_malloc_dyn(size_t n) {
-    return m_realloc_checked_dyn(NULL, n, false);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 }
 
 static inline void m_free_dyn(void *ptr) {
@@ -113,12 +66,8 @@ static inline void m_free_dyn(void *ptr) {
 }
 
 static inline void *m_realloc_dyn(void *ptr, size_t new_num_bytes) {
-<<<<<<< HEAD
     // TODO won't raise on OOM
     return mp_fun_table.realloc_(ptr, new_num_bytes, true);
-=======
-    return m_realloc_checked_dyn(ptr, new_num_bytes, true);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 }
 
 /******************************************************************************/

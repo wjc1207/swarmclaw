@@ -151,21 +151,13 @@ value_error:
         raise_exc(exc, lex);
         #elif MICROPY_ERROR_REPORTING == MICROPY_ERROR_REPORTING_NORMAL
         mp_obj_t exc = mp_obj_new_exception_msg_varg(&mp_type_ValueError,
-<<<<<<< HEAD
             MP_ERROR_TEXT("invalid syntax for integer with base %d"), base);
-=======
-            MP_ERROR_TEXT("invalid syntax for integer with base %d"), base == 1 ? 0 : base);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         raise_exc(exc, lex);
         #else
         vstr_t vstr;
         mp_print_t print;
         vstr_init_print(&vstr, 50, &print);
-<<<<<<< HEAD
         mp_printf(&print, "invalid syntax for integer with base %d: ", base);
-=======
-        mp_printf(&print, "invalid syntax for integer with base %d: ", base == 1 ? 0 : base);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         mp_str_print_quoted(&print, str_val_start, top - str_val_start, true);
         mp_obj_t exc = mp_obj_new_exception_arg1(&mp_type_ValueError,
             mp_obj_new_str_from_utf8_vstr(&vstr));
@@ -187,38 +179,25 @@ typedef enum {
 } parse_dec_in_t;
 
 #if MICROPY_PY_BUILTINS_FLOAT
-<<<<<<< HEAD
 // DEC_VAL_MAX only needs to be rough and is used to retain precision while not overflowing
-=======
-// MANTISSA_MAX is used to retain precision while not overflowing mantissa
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // SMALL_NORMAL_VAL is the smallest power of 10 that is still a normal float
 // EXACT_POWER_OF_10 is the largest value of x so that 10^x can be stored exactly in a float
 //   Note: EXACT_POWER_OF_10 is at least floor(log_5(2^mantissa_length)). Indeed, 10^n = 2^n * 5^n
 //   so we only have to store the 5^n part in the mantissa (the 2^n part will go into the float's
 //   exponent).
 #if MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_FLOAT
-<<<<<<< HEAD
 #define DEC_VAL_MAX 1e20F
-=======
-#define MANTISSA_MAX 0x19999998U
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #define SMALL_NORMAL_VAL (1e-37F)
 #define SMALL_NORMAL_EXP (-37)
 #define EXACT_POWER_OF_10 (9)
 #elif MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_DOUBLE
-<<<<<<< HEAD
 #define DEC_VAL_MAX 1e200
-=======
-#define MANTISSA_MAX 0x1999999999999998ULL
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #define SMALL_NORMAL_VAL (1e-307)
 #define SMALL_NORMAL_EXP (-307)
 #define EXACT_POWER_OF_10 (22)
 #endif
 
 // Break out inner digit accumulation routine to ease trailing zero deferral.
-<<<<<<< HEAD
 static void accept_digit(mp_float_t *p_dec_val, int dig, int *p_exp_extra, int in) {
     // Core routine to ingest an additional digit.
     if (*p_dec_val < DEC_VAL_MAX) {
@@ -227,26 +206,12 @@ static void accept_digit(mp_float_t *p_dec_val, int dig, int *p_exp_extra, int i
         if (in == PARSE_DEC_IN_FRAC) {
             --(*p_exp_extra);
         }
-=======
-static mp_float_uint_t accept_digit(mp_float_uint_t p_mantissa, unsigned int dig, int *p_exp_extra, int in) {
-    // Core routine to ingest an additional digit.
-    if (p_mantissa < MANTISSA_MAX) {
-        // dec_val won't overflow so keep accumulating
-        if (in == PARSE_DEC_IN_FRAC) {
-            --(*p_exp_extra);
-        }
-        return 10u * p_mantissa + dig;
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     } else {
         // dec_val might overflow and we anyway can't represent more digits
         // of precision, so ignore the digit and just adjust the exponent
         if (in == PARSE_DEC_IN_INTG) {
             ++(*p_exp_extra);
         }
-<<<<<<< HEAD
-=======
-        return p_mantissa;
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     }
 }
 #endif // MICROPY_PY_BUILTINS_FLOAT
@@ -308,10 +273,6 @@ parse_start:
         // string should be a decimal number
         parse_dec_in_t in = PARSE_DEC_IN_INTG;
         bool exp_neg = false;
-<<<<<<< HEAD
-=======
-        mp_float_uint_t mantissa = 0;
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         int exp_val = 0;
         int exp_extra = 0;
         int trailing_zeros_intg = 0, trailing_zeros_frac = 0;
@@ -327,15 +288,9 @@ parse_start:
                         exp_val = 10 * exp_val + dig;
                     }
                 } else {
-<<<<<<< HEAD
                     if (dig == 0 || dec_val >= DEC_VAL_MAX) {
                         // Defer treatment of zeros in fractional part.  If nothing comes afterwards, ignore them.
                         // Also, once we reach DEC_VAL_MAX, treat every additional digit as a trailing zero.
-=======
-                    if (dig == 0 || mantissa >= MANTISSA_MAX) {
-                        // Defer treatment of zeros in fractional part.  If nothing comes afterwards, ignore them.
-                        // Also, once we reach MANTISSA_MAX, treat every additional digit as a trailing zero.
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
                         if (in == PARSE_DEC_IN_INTG) {
                             ++trailing_zeros_intg;
                         } else {
@@ -344,7 +299,6 @@ parse_start:
                     } else {
                         // Time to un-defer any trailing zeros.  Intg zeros first.
                         while (trailing_zeros_intg) {
-<<<<<<< HEAD
                             accept_digit(&dec_val, 0, &exp_extra, PARSE_DEC_IN_INTG);
                             --trailing_zeros_intg;
                         }
@@ -353,16 +307,6 @@ parse_start:
                             --trailing_zeros_frac;
                         }
                         accept_digit(&dec_val, dig, &exp_extra, in);
-=======
-                            mantissa = accept_digit(mantissa, 0, &exp_extra, PARSE_DEC_IN_INTG);
-                            --trailing_zeros_intg;
-                        }
-                        while (trailing_zeros_frac) {
-                            mantissa = accept_digit(mantissa, 0, &exp_extra, PARSE_DEC_IN_FRAC);
-                            --trailing_zeros_frac;
-                        }
-                        mantissa = accept_digit(mantissa, dig, &exp_extra, in);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
                     }
                 }
             } else if (in == PARSE_DEC_IN_INTG && dig == '.') {
@@ -396,10 +340,6 @@ parse_start:
 
         // apply the exponent, making sure it's not a subnormal value
         exp_val += exp_extra + trailing_zeros_intg;
-<<<<<<< HEAD
-=======
-        dec_val = (mp_float_t)mantissa;
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
         if (exp_val < SMALL_NORMAL_EXP) {
             exp_val -= SMALL_NORMAL_EXP;
             dec_val *= SMALL_NORMAL_VAL;

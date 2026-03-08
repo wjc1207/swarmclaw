@@ -68,14 +68,6 @@ Q(utf-8)
 Q(.frozen)
 #endif
 
-<<<<<<< HEAD
-=======
-#if MICROPY_VFS_ROM && MICROPY_VFS_ROM_IOCTL
-Q(/rom)
-Q(/rom/lib)
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #if MICROPY_ENABLE_PYSTACK
 Q(pystack exhausted)
 #endif

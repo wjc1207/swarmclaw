@@ -77,21 +77,6 @@ typedef struct _mp_sched_item_t {
     mp_obj_t arg;
 } mp_sched_item_t;
 
-<<<<<<< HEAD
-=======
-// gc_lock_depth field is a combination of the GC_COLLECT_FLAG
-// bit and a lock depth shifted GC_LOCK_DEPTH_SHIFT bits left.
-#if MICROPY_ENABLE_FINALISER
-#define GC_COLLECT_FLAG 1
-#define GC_LOCK_DEPTH_SHIFT 1
-#else
-// If finalisers are disabled then this check doesn't matter, as gc_lock()
-// is called anywhere else that heap can't be changed. So save some code size.
-#define GC_COLLECT_FLAG 0
-#define GC_LOCK_DEPTH_SHIFT 0
-#endif
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 // This structure holds information about a single contiguous area of
 // memory reserved for the memory manager.
 typedef struct _mp_state_mem_area_t {
@@ -148,11 +133,7 @@ typedef struct _mp_state_mem_t {
 
     #if MICROPY_PY_THREAD && !MICROPY_PY_THREAD_GIL
     // This is a global mutex used to make the GC thread-safe.
-<<<<<<< HEAD
     mp_thread_mutex_t gc_mutex;
-=======
-    mp_thread_recursive_mutex_t gc_mutex;
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     #endif
 } mp_state_mem_t;
 
@@ -287,10 +268,6 @@ typedef struct _mp_state_thread_t {
     #endif
 
     // Locking of the GC is done per thread.
-<<<<<<< HEAD
-=======
-    // See GC_LOCK_DEPTH_SHIFT for an explanation of this field.
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     uint16_t gc_lock_depth;
 
     ////////////////////////////////////////////////////////////

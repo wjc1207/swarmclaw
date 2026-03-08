@@ -115,7 +115,6 @@ static bool emit_inline_xtensa_label(emit_inline_asm_t *emit, mp_uint_t label_nu
     return true;
 }
 
-<<<<<<< HEAD
 typedef struct _reg_name_t { byte reg;
                              byte name[3];
 } reg_name_t;
@@ -160,23 +159,6 @@ static mp_uint_t get_arg_reg(emit_inline_asm_t *emit, const char *op, mp_parse_n
             return r->reg;
         }
     }
-=======
-static const qstr_short_t REGISTERS[16] = {
-    MP_QSTR_a0, MP_QSTR_a1, MP_QSTR_a2, MP_QSTR_a3, MP_QSTR_a4, MP_QSTR_a5, MP_QSTR_a6, MP_QSTR_a7,
-    MP_QSTR_a8, MP_QSTR_a9, MP_QSTR_a10, MP_QSTR_a11, MP_QSTR_a12, MP_QSTR_a13, MP_QSTR_a14, MP_QSTR_a15
-};
-
-static mp_uint_t get_arg_reg(emit_inline_asm_t *emit, const char *op, mp_parse_node_t pn) {
-    if (MP_PARSE_NODE_IS_ID(pn)) {
-        qstr node_qstr = MP_PARSE_NODE_LEAF_ARG(pn);
-        for (size_t i = 0; i < MP_ARRAY_SIZE(REGISTERS); i++) {
-            if (node_qstr == REGISTERS[i]) {
-                return i;
-            }
-        }
-    }
-
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
     emit_inline_xtensa_error_exc(emit,
         mp_obj_new_exception_msg_varg(&mp_type_SyntaxError,
             MP_ERROR_TEXT("'%s' expects a register"), op));

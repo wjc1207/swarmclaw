@@ -36,15 +36,7 @@
 // See: https://sourceforge.net/p/predef/wiki/Home/
 
 #if defined(__ARM_ARCH)
-<<<<<<< HEAD
 #define MICROPY_PLATFORM_ARCH   "arm"
-=======
-#if defined(__ARM_ARCH_ISA_A64)
-#define MICROPY_PLATFORM_ARCH   "aarch64"
-#else
-#define MICROPY_PLATFORM_ARCH   "arm"
-#endif
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #elif defined(__x86_64__) || defined(_M_X64)
 #define MICROPY_PLATFORM_ARCH   "x86_64"
 #elif defined(__i386__) || defined(_M_IX86)
@@ -52,30 +44,12 @@
 #elif defined(__xtensa__)
 #define MICROPY_PLATFORM_ARCH   "xtensa"
 #elif defined(__riscv)
-<<<<<<< HEAD
 #define MICROPY_PLATFORM_ARCH   "riscv"
-=======
-#if __riscv_xlen == 64
-#define MICROPY_PLATFORM_ARCH   "riscv64"
-#else
-#define MICROPY_PLATFORM_ARCH   "riscv"
-#endif
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #else
 #define MICROPY_PLATFORM_ARCH   ""
 #endif
 
-<<<<<<< HEAD
 #if defined(__GNUC__)
-=======
-#if defined(__clang__)
-#define MICROPY_PLATFORM_COMPILER \
-    "Clang " \
-    MP_STRINGIFY(__clang_major__) "." \
-    MP_STRINGIFY(__clang_minor__) "." \
-    MP_STRINGIFY(__clang_patchlevel__)
-#elif defined(__GNUC__)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #define MICROPY_PLATFORM_COMPILER \
     "GCC " \
     MP_STRINGIFY(__GNUC__) "." \
@@ -112,24 +86,12 @@
 #elif defined(_PICOLIBC__)
 #define MICROPY_PLATFORM_LIBC_LIB       "picolibc"
 #define MICROPY_PLATFORM_LIBC_VER       _PICOLIBC_VERSION
-<<<<<<< HEAD
-=======
-#elif defined(__ANDROID__)
-#define MICROPY_PLATFORM_LIBC_LIB       "bionic"
-#define MICROPY_PLATFORM_LIBC_VER       MP_STRINGIFY(__ANDROID_API__)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #else
 #define MICROPY_PLATFORM_LIBC_LIB       ""
 #define MICROPY_PLATFORM_LIBC_VER       ""
 #endif
 
-<<<<<<< HEAD
 #if defined(__linux)
-=======
-#if defined(__ANDROID__)
-#define MICROPY_PLATFORM_SYSTEM         "Android"
-#elif defined(__linux)
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 #define MICROPY_PLATFORM_SYSTEM         "Linux"
 #elif defined(__unix__)
 #define MICROPY_PLATFORM_SYSTEM         "Unix"

@@ -307,24 +307,12 @@ typedef struct _emit_inline_asm_method_table_t {
     void (*op)(emit_inline_asm_t *emit, qstr op, mp_uint_t n_args, mp_parse_node_t *pn_args);
 } emit_inline_asm_method_table_t;
 
-<<<<<<< HEAD
 extern const emit_inline_asm_method_table_t emit_inline_thumb_method_table;
 extern const emit_inline_asm_method_table_t emit_inline_xtensa_method_table;
 
 emit_inline_asm_t *emit_inline_thumb_new(mp_uint_t max_num_labels);
 emit_inline_asm_t *emit_inline_xtensa_new(mp_uint_t max_num_labels);
 
-=======
-extern const emit_inline_asm_method_table_t emit_inline_rv32_method_table;
-extern const emit_inline_asm_method_table_t emit_inline_thumb_method_table;
-extern const emit_inline_asm_method_table_t emit_inline_xtensa_method_table;
-
-emit_inline_asm_t *emit_inline_rv32_new(mp_uint_t max_num_labels);
-emit_inline_asm_t *emit_inline_thumb_new(mp_uint_t max_num_labels);
-emit_inline_asm_t *emit_inline_xtensa_new(mp_uint_t max_num_labels);
-
-void emit_inline_rv32_free(emit_inline_asm_t *emit);
->>>>>>> 4f6d161cc529d9c7a4b43413520c4036a228fe2d
 void emit_inline_thumb_free(emit_inline_asm_t *emit);
 void emit_inline_xtensa_free(emit_inline_asm_t *emit);
 
