@@ -2,6 +2,8 @@
 
 #include "py/runtime.h"
 #include "py/obj.h"
+#include "py/objmodule.h"
+#include "py/qstr.h"
 #include "tools/tool_gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -85,19 +87,7 @@ static mp_obj_t mpy_gpio_set_pull(mp_obj_t pin_o, mp_obj_t pull_o) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mpy_gpio_set_pull_obj, mpy_gpio_set_pull);
 
-static const mp_rom_map_elem_t gpio_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__),  MP_ROM_QSTR(MP_QSTR_gpio) },
-    { MP_ROM_QSTR(MP_QSTR_write),     MP_ROM_PTR(&mpy_gpio_write_obj) },
-    { MP_ROM_QSTR(MP_QSTR_read),      MP_ROM_PTR(&mpy_gpio_read_obj) },
-    { MP_ROM_QSTR(MP_QSTR_set_dir),   MP_ROM_PTR(&mpy_gpio_set_dir_obj) },
-    { MP_ROM_QSTR(MP_QSTR_set_pull),  MP_ROM_PTR(&mpy_gpio_set_pull_obj) },
-};
-static MP_DEFINE_CONST_DICT(gpio_module_globals, gpio_module_globals_table);
-const mp_obj_module_t mpy_gpio_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&gpio_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_gpio, mpy_gpio_module);
+/* gpio module: registered dynamically in mpy_gpio_modules_register() */
 
 /* ── i2c module ───────────────────────────────────────────── */
 
@@ -151,17 +141,7 @@ static mp_obj_t mpy_i2c_read(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_i2c_read_obj, 4, 5, mpy_i2c_read);
 
-static const mp_rom_map_elem_t i2c_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_i2c) },
-    { MP_ROM_QSTR(MP_QSTR_write),    MP_ROM_PTR(&mpy_i2c_write_obj) },
-    { MP_ROM_QSTR(MP_QSTR_read),     MP_ROM_PTR(&mpy_i2c_read_obj) },
-};
-static MP_DEFINE_CONST_DICT(i2c_module_globals, i2c_module_globals_table);
-const mp_obj_module_t mpy_i2c_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&i2c_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_i2c, mpy_i2c_module);
+/* i2c module: registered dynamically in mpy_gpio_modules_register() */
 
 /* ── spi module ───────────────────────────────────────────── */
 
@@ -199,16 +179,7 @@ static mp_obj_t mpy_spi_transfer(size_t n_args, const mp_obj_t *args) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mpy_spi_transfer_obj, 5, 5, mpy_spi_transfer);
 
-static const mp_rom_map_elem_t spi_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__),    MP_ROM_QSTR(MP_QSTR_spi) },
-    { MP_ROM_QSTR(MP_QSTR_transfer),    MP_ROM_PTR(&mpy_spi_transfer_obj) },
-};
-static MP_DEFINE_CONST_DICT(spi_module_globals, spi_module_globals_table);
-const mp_obj_module_t mpy_spi_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&spi_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_spi, mpy_spi_module);
+/* spi module: registered dynamically in mpy_gpio_modules_register() */
 
 /* ── rgb module ───────────────────────────────────────────── */
 
@@ -237,17 +208,7 @@ static mp_obj_t mpy_rgb_show(mp_obj_t pin_o, mp_obj_t n_o) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_2(mpy_rgb_show_obj, mpy_rgb_show);
 
-static const mp_rom_map_elem_t rgb_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_rgb) },
-    { MP_ROM_QSTR(MP_QSTR_fill),     MP_ROM_PTR(&mpy_rgb_fill_obj) },
-    { MP_ROM_QSTR(MP_QSTR_show),     MP_ROM_PTR(&mpy_rgb_show_obj) },
-};
-static MP_DEFINE_CONST_DICT(rgb_module_globals, rgb_module_globals_table);
-const mp_obj_module_t mpy_rgb_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&rgb_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_rgb, mpy_rgb_module);
+/* rgb module: registered dynamically in mpy_gpio_modules_register() */
 
 /* ── pwm module ───────────────────────────────────────────── */
 
@@ -273,17 +234,7 @@ static mp_obj_t mpy_pwm_stop(mp_obj_t pin_o) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mpy_pwm_stop_obj, mpy_pwm_stop);
 
-static const mp_rom_map_elem_t pwm_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_pwm) },
-    { MP_ROM_QSTR(MP_QSTR_start),    MP_ROM_PTR(&mpy_pwm_start_obj) },
-    { MP_ROM_QSTR(MP_QSTR_stop),     MP_ROM_PTR(&mpy_pwm_stop_obj) },
-};
-static MP_DEFINE_CONST_DICT(pwm_module_globals, pwm_module_globals_table);
-const mp_obj_module_t mpy_pwm_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&pwm_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_pwm, mpy_pwm_module);
+/* pwm module: registered dynamically in mpy_gpio_modules_register() */
 
 /* ── sleep module ─────────────────────────────────────────── */
 
@@ -294,13 +245,82 @@ static mp_obj_t mpy_sleep_ms(mp_obj_t ms_o) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_1(mpy_sleep_ms_obj, mpy_sleep_ms);
 
-static const mp_rom_map_elem_t sleep_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_sleep) },
-    { MP_ROM_QSTR(MP_QSTR_ms),       MP_ROM_PTR(&mpy_sleep_ms_obj) },
-};
-static MP_DEFINE_CONST_DICT(sleep_module_globals, sleep_module_globals_table);
-const mp_obj_module_t mpy_sleep_module = {
-    .base    = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&sleep_module_globals,
-};
-MP_REGISTER_MODULE(MP_QSTR_sleep, mpy_sleep_module);
+/* sleep module: registered dynamically in mpy_gpio_modules_register() */
+
+/* ── Runtime registration ─────────────────────────────────── */
+
+// Create a module with the given name and populate it with the given attributes.
+// mp_obj_new_module() also registers the module into mp_loaded_modules_dict,
+// making it importable via "import <name>".
+static void register_module(const char *name,
+                            const char *const *attr_names,
+                            const mp_obj_t *attr_objs,
+                            size_t n_attrs)
+{
+    qstr q_mod = qstr_from_str(name);
+    mp_obj_t mod = mp_obj_new_module(q_mod);
+    mp_obj_dict_t *d = mp_obj_module_get_globals(mod);
+    for (size_t i = 0; i < n_attrs; i++) {
+        mp_obj_dict_store(MP_OBJ_FROM_PTR(d),
+                          MP_OBJ_NEW_QSTR(qstr_from_str(attr_names[i])),
+                          attr_objs[i]);
+    }
+}
+
+void mpy_gpio_modules_register(void)
+{
+    /* gpio */
+    {
+        static const char *const names[] = { "write", "read", "set_dir", "set_pull" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_gpio_write_obj),
+            MP_OBJ_FROM_PTR(&mpy_gpio_read_obj),
+            MP_OBJ_FROM_PTR(&mpy_gpio_set_dir_obj),
+            MP_OBJ_FROM_PTR(&mpy_gpio_set_pull_obj),
+        };
+        register_module("gpio", names, objs, 4);
+    }
+    /* i2c */
+    {
+        static const char *const names[] = { "write", "read" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_i2c_write_obj),
+            MP_OBJ_FROM_PTR(&mpy_i2c_read_obj),
+        };
+        register_module("i2c", names, objs, 2);
+    }
+    /* spi */
+    {
+        static const char *const names[] = { "transfer" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_spi_transfer_obj),
+        };
+        register_module("spi", names, objs, 1);
+    }
+    /* rgb */
+    {
+        static const char *const names[] = { "fill", "show" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_rgb_fill_obj),
+            MP_OBJ_FROM_PTR(&mpy_rgb_show_obj),
+        };
+        register_module("rgb", names, objs, 2);
+    }
+    /* pwm */
+    {
+        static const char *const names[] = { "start", "stop" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_pwm_start_obj),
+            MP_OBJ_FROM_PTR(&mpy_pwm_stop_obj),
+        };
+        register_module("pwm", names, objs, 2);
+    }
+    /* sleep */
+    {
+        static const char *const names[] = { "ms" };
+        static const mp_obj_t objs[] = {
+            MP_OBJ_FROM_PTR(&mpy_sleep_ms_obj),
+        };
+        register_module("sleep", names, objs, 1);
+    }
+}

@@ -1,6 +1,7 @@
 // main/mpy/mpy_runner.c
 
 #include "mpy/mpy_runner.h"
+#include "mpy/mpy_gpio_module.h"
 #include "micropython_embed.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -45,7 +46,8 @@ static void mpy_exec_task(void *arg)
 {
     mpy_task_ctx_t *tc = (mpy_task_ctx_t *)arg;
 
-    mp_embed_init(tc->heap, MPY_HEAP_SIZE);
+    mp_embed_init(tc->heap, MPY_HEAP_SIZE, &tc);
+    mpy_gpio_modules_register();
     mp_embed_exec_str(tc->src);
     mp_embed_deinit();
 
