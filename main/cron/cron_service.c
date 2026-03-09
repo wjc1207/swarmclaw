@@ -318,7 +318,6 @@ static void cron_task_main(void *arg)
     }
 
     /* Recompute next_run for all enabled jobs that don't have one */
-    now = time(NULL);
     for (int i = 0; i < s_job_count; i++) {
         cron_job_t *job = &s_jobs[i];
         if (job->enabled && job->next_run <= 0) {
