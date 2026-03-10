@@ -25,6 +25,8 @@
  */
 
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "py/compile.h"
 #include "py/gc.h"
 #include "py/persistentcode.h"
@@ -95,14 +97,14 @@ void gc_collect(void) {
 
 // Called if an exception is raised outside all C exception-catching handlers.
 void nlr_jump_fail(void *val) {
-    for (;;) {
-    }
+    fprintf(stderr, "FATAL: nlr_jump_fail(%p)\n", val);
+    abort();
 }
 
 #ifndef NDEBUG
 // Used when debugging is enabled.
 void __assert_func(const char *file, int line, const char *func, const char *expr) {
-    for (;;) {
-    }
+    fprintf(stderr, "ASSERT FAILED: %s:%d %s: %s\n", file, line, func, expr);
+    abort();
 }
 #endif

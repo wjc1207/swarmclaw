@@ -35,6 +35,16 @@ CONFIG_HTTPD_WS_SUPPORT=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
+# Logging: ensure ESP_LOGI (level 3 = INFO) is always available
+CONFIG_LOG_DEFAULT_LEVEL=3
+CONFIG_LOG_MAXIMUM_LEVEL=4
+
+# Main task stack: 4 KB (default 3584 may be tight with MicroPython linked in)
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# Compiler: optimise for size — required after adding MicroPython embed (~54 K LOC)
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
 # Console: UART only (non-blocking, works without a USB host)
 # Using USB Serial/JTAG as secondary console causes esp_log writes to block
 # when the TX FIFO is full and no USB host is connected (wall charger / power bank),
