@@ -1,5 +1,6 @@
 # Build output
 build/
+build-embed/
 dist/
 tmp/
 releases/
@@ -8,7 +9,8 @@ releases/
 sdkconfig
 sdkconfig.old
 dependencies.lock
-components/
+components/*
+!components/micropython_embed/
 managed_components/
 
 # Generated headers
