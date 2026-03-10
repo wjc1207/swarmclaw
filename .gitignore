@@ -13,7 +13,6 @@ managed_components/
 # components/ — ignore managed components, track our own
 components/*
 !components/micropython_embed/
-micropython/*
 
 # Generated headers
 main/assets/lang_config.h
