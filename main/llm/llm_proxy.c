@@ -791,7 +791,13 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     }
 
     /* Parse full JSON response */
-    cJSON *root = cJSON_Parse(rb.data);
+    char *json_start = strchr(rb.data, '{');
+    if (!json_start) {
+        ESP_LOGE(TAG, "No JSON object found in response");
+        resp_buf_free(&rb);
+        return ESP_FAIL;
+    }
+    cJSON *root = cJSON_Parse(json_start);
     resp_buf_free(&rb);
 
     if (!root) {
