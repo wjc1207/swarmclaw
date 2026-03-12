@@ -284,6 +284,7 @@ static void agent_loop_task(void *arg)
         /* 4. ReAct loop */
         char *final_text = NULL;
         int iteration = 0;
+        int tool_calls_total = 0;
         bool sent_working_status = false;
 
         while (iteration < MIMI_AGENT_MAX_TOOL_ITER) {
@@ -332,6 +333,7 @@ static void agent_loop_task(void *arg)
 
             /* Execute tools and append results */
             cJSON *tool_results = build_tool_results(&resp, &msg, tool_output, TOOL_OUTPUT_SIZE);
+            tool_calls_total += resp.call_count;
             cJSON *result_msg = cJSON_CreateObject();
             cJSON_AddStringToObject(result_msg, "role", "user");
             cJSON_AddItemToObject(result_msg, "content", tool_results);
@@ -341,6 +343,26 @@ static void agent_loop_task(void *arg)
             iteration++;
         }
 
+        if (iteration < MIMI_AGENT_MAX_TOOL_ITER && tool_calls_total > 0) {
+            /* Push tool usage to outbound */
+            mimi_msg_t out = {0};
+            strncpy(out.channel, msg.channel, sizeof(out.channel) - 1);
+            strncpy(out.chat_id, msg.chat_id, sizeof(out.chat_id) - 1);
+            char tool_summary[128];
+            snprintf(tool_summary, sizeof(tool_summary),
+                     "Tool iterations: %d, total tool calls: %d",
+                     iteration, tool_calls_total);
+            out.content = strdup(tool_summary);
+            if (out.content) {
+                if (message_bus_push_outbound(&out) != ESP_OK) {
+                    ESP_LOGW(TAG, "Outbound queue full, drop final response");
+                    free(out.content);
+                }
+            }
+        }
+        if (iteration >= MIMI_AGENT_MAX_TOOL_ITER) {
+            ESP_LOGE(TAG, "Reached maximum tool iterations, stop processing");
+        }
         cJSON_Delete(messages);
 
         /* 5. Send response */

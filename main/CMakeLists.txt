@@ -38,7 +38,7 @@ idf_component_register(
 
 # Force linker to keep these symbols despite --gc-sections.
 # They are referenced from inside libmicropython_embed.a but
-# defined here in main — gc-sections drops them without -u.
+# defined here in main.
 target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,-u,mp_import_stat"
     "-Wl,-u,mp_builtin_open_obj"

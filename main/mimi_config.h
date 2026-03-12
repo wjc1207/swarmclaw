@@ -76,7 +76,7 @@
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
 #define MIMI_LLM_RESP_MAX_BYTES      (512 * 1024)
 #define MIMI_LLM_LOG_VERBOSE_PAYLOAD 0
-#define MIMI_LLM_LOG_PREVIEW_BYTES   160
+#define MIMI_LLM_LOG_PREVIEW_BYTES   320
 
 /* Message Bus */
 #define MIMI_BUS_QUEUE_LEN           16
