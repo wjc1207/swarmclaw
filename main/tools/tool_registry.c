@@ -183,53 +183,15 @@ esp_err_t tool_registry_init(void)
 
     mimi_tool_t gpio = {
         .name = "gpio",
-        .description = "Unified hardware I/O tool. Controls GPIO pins, I2C, SPI, RGB LEDs, PWM, UART, and 1-Wire via a single 'action' field. "
-                       "Actions: gpio_set_dir, gpio_write, gpio_read, gpio_set_pull, gpio_on_edge, "
-                       "i2c_write, i2c_read, i2c_write_read, spi_transfer, spi_write, "
-                       "rgb_set_pixel, rgb_fill, rgb_set_range, rgb_show, rgb_clear, "
-                       "pwm_start, pwm_set_duty, pwm_set_freq, pwm_stop, "
-                       "uart_write, uart_read, onewire_scan, onewire_read. "
-                       "For the onboard WS2812 RGB LED on GPIO48 use action 'set_rgb' with r, g, b.",
+        .description = "Unified hardware I/O tool for GPIO, I2C, SPI, RGB LEDs, PWM, UART, and 1-Wire. "
+                       "Set 'action' to the operation you want, then pass its required fields. "
+                       "For full action/parameter details, read /spiffs/skills/gpio.md.",
         .input_schema_json =
-            "{"
-            "\"type\":\"object\","
+            "{\"type\":\"object\","
             "\"properties\":{"
-                "\"action\":{\"type\":\"string\",\"description\":\"The operation to perform\"},"
-                "\"pin\":{\"type\":\"integer\",\"description\":\"GPIO pin number\"},"
-                "\"direction\":{\"type\":\"string\",\"description\":\"Pin direction: IN or OUT\"},"
-                "\"value\":{\"description\":\"Pin value: 0, 1, HIGH, or LOW\"},"
-                "\"pull\":{\"type\":\"string\",\"description\":\"Pull resistor: UP, DOWN, or NONE\"},"
-                "\"edge\":{\"type\":\"string\",\"description\":\"Edge type: RISING, FALLING, or BOTH\"},"
-                "\"sda\":{\"type\":\"integer\",\"description\":\"I2C SDA pin\"},"
-                "\"scl\":{\"type\":\"integer\",\"description\":\"I2C SCL pin\"},"
-                "\"addr\":{\"type\":\"integer\",\"description\":\"I2C device address\"},"
-                "\"data\":{\"type\":\"array\",\"description\":\"Byte array for write operations\",\"items\":{\"type\":\"integer\"}},"
-                "\"length\":{\"type\":\"integer\",\"description\":\"Number of bytes to read\"},"
-                "\"freq\":{\"type\":\"integer\",\"description\":\"I2C frequency in Hz (default 100000)\"},"
-                "\"mosi\":{\"type\":\"integer\",\"description\":\"SPI MOSI pin\"},"
-                "\"miso\":{\"type\":\"integer\",\"description\":\"SPI MISO pin\"},"
-                "\"sclk\":{\"type\":\"integer\",\"description\":\"SPI SCLK pin\"},"
-                "\"cs\":{\"type\":\"integer\",\"description\":\"SPI CS pin\"},"
-                "\"tx\":{\"description\":\"SPI/UART transmit data or UART TX pin\"},"
-                "\"rx\":{\"type\":\"integer\",\"description\":\"UART RX pin\"},"
-                "\"mode\":{\"type\":\"integer\",\"description\":\"SPI mode 0-3\"},"
-                "\"speed\":{\"type\":\"integer\",\"description\":\"SPI clock speed Hz\"},"
-                "\"num_pixels\":{\"type\":\"integer\",\"description\":\"Number of LEDs in strip\"},"
-                "\"index\":{\"type\":\"integer\",\"description\":\"LED pixel index\"},"
-                "\"r\":{\"type\":\"integer\",\"description\":\"Red 0-255\"},"
-                "\"g\":{\"type\":\"integer\",\"description\":\"Green 0-255\"},"
-                "\"b\":{\"type\":\"integer\",\"description\":\"Blue 0-255\"},"
-                "\"start\":{\"type\":\"integer\",\"description\":\"Range start index\"},"
-                "\"end\":{\"type\":\"integer\",\"description\":\"Range end index\"},"
-                "\"brightness\":{\"type\":\"number\",\"description\":\"Brightness 0.0-1.0\"},"
-                "\"duty\":{\"type\":\"integer\",\"description\":\"PWM duty cycle 0-100\"},"
-                "\"baud\":{\"type\":\"integer\",\"description\":\"UART baud rate\"},"
-                "\"timeout\":{\"type\":\"number\",\"description\":\"UART read timeout in seconds\"},"
-                "\"rom\":{\"type\":\"string\",\"description\":\"1-Wire ROM address hex string\"},"
-                "\"command\":{\"type\":\"integer\",\"description\":\"1-Wire device command byte\"}"
+            "\"action\":{\"type\":\"string\",\"description\":\"Operation name. See /spiffs/skills/gpio.md for all actions and parameters.\"}"
             "},"
-            "\"required\":[\"action\"]"
-            "}",
+            "\"required\":[\"action\"]}",
         .execute = tool_gpio_execute,
     };
 
