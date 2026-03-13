@@ -11,12 +11,6 @@ dependencies.lock
 components/
 managed_components/
 
-# make files
-!components/micropython_embed/micropython_embed.mk
-!components/micropython_embed/mpconfigport.h
-!components/micropython_embed/qstrdefsport.h
-!components/micropython_embed/CMakeLists.txt
-
 # Generated headers
 main/assets/lang_config.h
 main/mmap_generate_emoji.h
