@@ -28,6 +28,7 @@ typedef enum {
     LLM_PROVIDER_OPENAI,
     LLM_PROVIDER_OPENROUTER,
     LLM_PROVIDER_NVIDIA,
+    LLM_PROVIDER_QWEN,
     LLM_PROVIDER_UNKNOWN,
 } llm_provider_t;
 
@@ -44,6 +45,7 @@ static const provider_map_t k_provider_map[] = {
     { "openai",     LLM_PROVIDER_OPENAI,     MIMI_OPENAI_API_URL,     "api.openai.com",           "/v1/chat/completions" },
     { "openrouter", LLM_PROVIDER_OPENROUTER, MIMI_OPENROUTER_API_URL, "openrouter.ai",            "/v1/chat/completions" },
     { "nvidia",     LLM_PROVIDER_NVIDIA,     MIMI_NVIDIA_API_URL,     "integrate.api.nvidia.com", "/v1/chat/completions" },
+    { "qwen",       LLM_PROVIDER_QWEN,       MIMI_QWEN_API_URL,       "dashscope.aliyuncs.com",   "/compatible-mode/v1/chat/completions" },
 };
 #define PROVIDER_MAP_LEN (sizeof(k_provider_map) / sizeof(k_provider_map[0]))
 
@@ -648,7 +650,7 @@ esp_err_t llm_chat(const char *system_prompt, const char *messages_json,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC && s_llm_provider != LLM_PROVIDER_NVIDIA) {
+    if (s_llm_provider == LLM_PROVIDER_OPENAI || s_llm_provider == LLM_PROVIDER_OPENROUTER) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
@@ -774,7 +776,7 @@ esp_err_t llm_chat_tools(const char *system_prompt,
     /* Build request body (non-streaming) */
     cJSON *body = cJSON_CreateObject();
     cJSON_AddStringToObject(body, "model", s_model);
-    if (s_llm_provider != LLM_PROVIDER_ANTHROPIC && s_llm_provider != LLM_PROVIDER_NVIDIA) {
+    if (s_llm_provider == LLM_PROVIDER_OPENAI || s_llm_provider == LLM_PROVIDER_OPENROUTER) {
         cJSON_AddNumberToObject(body, "max_completion_tokens", MIMI_LLM_MAX_TOKENS);
     } else {
         cJSON_AddNumberToObject(body, "max_tokens", MIMI_LLM_MAX_TOKENS);
@@ -1015,7 +1017,7 @@ esp_err_t llm_set_model(const char *model)
 esp_err_t llm_set_provider(const char *provider)
 {
     if (!provider || provider_parse(provider) == LLM_PROVIDER_UNKNOWN) {
-        ESP_LOGE(TAG, "Unknown provider '%s'; valid: anthropic, openai, openrouter, nvidia",
+        ESP_LOGE(TAG, "Unknown provider '%s'; valid: anthropic, openai, openrouter, nvidia, qwen",
                  provider ? provider : "<null>");
         return ESP_ERR_INVALID_ARG;
     }

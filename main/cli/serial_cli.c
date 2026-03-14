@@ -818,7 +818,7 @@ esp_err_t serial_cli_init(void)
     /* tool_exec */
     esp_console_cmd_t tool_exec_cmd = {
         .command = "tool_exec",
-        .help = "Execute a registered tool: tool_exec <name> '{...json...}'",
+        .help = "Execute a registered tool: tool_exec <name> {...json...}",
         .func = &cmd_tool_exec,
     };
     esp_console_cmd_register(&tool_exec_cmd);

@@ -72,6 +72,7 @@
 #define MIMI_OPENAI_API_URL          "https://api.openai.com/v1/chat/completions"
 #define MIMI_OPENROUTER_API_URL      "https://openrouter.ai/api/v1/chat/completions"
 #define MIMI_NVIDIA_API_URL          "https://integrate.api.nvidia.com/v1/chat/completions"
+#define MIMI_QWEN_API_URL            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 #define MIMI_LLM_API_VERSION         "2023-06-01"
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
 #define MIMI_LLM_RESP_MAX_BYTES      (512 * 1024)
@@ -130,4 +131,4 @@
 #define MIMI_NVS_KEY_PROVIDER        "provider"
 #define MIMI_NVS_KEY_PROXY_HOST      "host"
 #define MIMI_NVS_KEY_PROXY_PORT      "port"
-#define MIMI_NVS_KEY_SEARCH_PROVIDER "search_prov"
+#define MIMI_NVS_KEY_SEARCH_PROVIDER "search_provider"

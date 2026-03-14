@@ -94,6 +94,8 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
 {
     if (!script_path || !out_buf) return ESP_ERR_INVALID_ARG;
 
+    *out_buf = NULL;
+
     /* Create a fresh Lua state with PSRAM allocator */
     lua_State *L = lua_newstate(lua_psram_alloc, NULL);
     if (!L) {
@@ -105,9 +107,14 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
     lua_open_gpio_libs(L);
 
     /* Set up capture context */
-    capture_ctx_t ctx = { .len = 0 };
-    ctx.buf[0] = '\0';
-    lua_pushlightuserdata(L, &ctx);
+    capture_ctx_t *ctx = calloc(1, sizeof(capture_ctx_t));
+    if (!ctx) {
+        lua_close(L);
+        *out_buf = strdup("Failed to allocate capture buffer");
+        return ESP_ERR_NO_MEM;
+    }
+
+    lua_pushlightuserdata(L, ctx);
     lua_setfield(L, LUA_REGISTRYINDEX, "_capture_ctx");
 
     /* Replace print() */
@@ -124,6 +131,7 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
     /* Run the script in a separate FreeRTOS task with timeout */
     SemaphoreHandle_t done_sem = xSemaphoreCreateBinary();
     if (!done_sem) {
+        free(ctx);
         lua_close(L);
         *out_buf = strdup("Failed to create semaphore");
         return ESP_FAIL;
@@ -143,6 +151,7 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
 
     if (created != pdPASS) {
         vSemaphoreDelete(done_sem);
+        free(ctx);
         lua_close(L);
         *out_buf = strdup("Failed to create Lua execution task");
         return ESP_FAIL;
@@ -157,33 +166,34 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
     vSemaphoreDelete(done_sem);
 
     /* Flush capture buffer */
-    ctx.buf[ctx.len] = '\0';
+    ctx->buf[ctx->len] = '\0';
 
     if (timed_out) {
-        size_t needed = ctx.len + 64;
+        size_t needed = ctx->len + 64;
         char *result = malloc(needed);
         if (result) {
             snprintf(result, needed, "%s\n[Timeout: script exceeded %d ms]",
-                     ctx.buf, timeout_ms);
+                     ctx->buf, timeout_ms);
         }
         *out_buf = result ? result : strdup("[Timeout]");
+        free(ctx);
         lua_close(L);
         return ESP_FAIL;
     }
 
     if (tc.result == LUA_OK) {
-        *out_buf = strdup(ctx.buf);
+        *out_buf = strdup(ctx->buf);
     } else {
         const char *err = lua_tostring(L, -1);
         const char *err_msg = err ? err : "unknown error";
         size_t err_len = strlen(err_msg);
-        size_t needed = ctx.len + err_len + 2;
+        size_t needed = ctx->len + err_len + 2;
         char *result = malloc(needed);
         if (result) {
-            if (ctx.len > 0) {
-                memcpy(result, ctx.buf, ctx.len);
-                result[ctx.len] = '\n';
-                memcpy(result + ctx.len + 1, err_msg, err_len + 1);
+            if (ctx->len > 0) {
+                memcpy(result, ctx->buf, ctx->len);
+                result[ctx->len] = '\n';
+                memcpy(result + ctx->len + 1, err_msg, err_len + 1);
             } else {
                 memcpy(result, err_msg, err_len + 1);
             }
@@ -191,6 +201,7 @@ esp_err_t lua_runner_exec(const char *script_path, int timeout_ms,
         *out_buf = result ? result : strdup("Lua error");
     }
 
+    free(ctx);
     lua_close(L);
     ESP_LOGI(TAG, "Script %s finished (rc=%d)", script_path, tc.result);
     return (tc.result == LUA_OK) ? ESP_OK : ESP_FAIL;
