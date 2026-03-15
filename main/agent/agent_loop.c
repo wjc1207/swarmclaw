@@ -88,6 +88,30 @@ static void append_turn_context_prompt(char *prompt, size_t size, const mimi_msg
     }
 }
 
+static char *append_tool_calls_message(const char *text, int tool_calls)
+{
+    if (!text || tool_calls <= 0) {
+        return text ? strdup(text) : NULL;
+    }
+
+    const char *suffix_fmt = "\n\n[tool calls: %d]";
+    int suffix_len = snprintf(NULL, 0, suffix_fmt, tool_calls);
+    if (suffix_len <= 0) {
+        return strdup(text);
+    }
+
+    size_t text_len = strlen(text);
+    size_t out_len = text_len + (size_t)suffix_len;
+    char *out = malloc(out_len + 1);
+    if (!out) {
+        return strdup(text);
+    }
+
+    memcpy(out, text, text_len);
+    snprintf(out + text_len, (size_t)suffix_len + 1, suffix_fmt, tool_calls);
+    return out;
+}
+
 static char *patch_tool_input_with_context(const llm_tool_call_t *call, const mimi_msg_t *msg)
 {
     if (!call || !msg || strcmp(call->name, "cron_add") != 0) {
@@ -114,8 +138,8 @@ static char *patch_tool_input_with_context(const llm_tool_call_t *call, const mi
         changed = true;
     }
 
-    if (channel && strcmp(channel, MIMI_CHAN_TELEGRAM) == 0 &&
-        strcmp(msg->channel, MIMI_CHAN_TELEGRAM) == 0 && msg->chat_id[0] != '\0') {
+    if (channel && strcmp(channel, msg->channel) == 0 && msg->chat_id[0] != '\0' &&
+        (strcmp(channel, MIMI_CHAN_TELEGRAM) == 0 || strcmp(channel, MIMI_CHAN_FEISHU) == 0)) {
         cJSON *chat_item = cJSON_GetObjectItem(root, "chat_id");
         const char *chat_id = cJSON_IsString(chat_item) ? chat_item->valuestring : NULL;
         if (!chat_id || chat_id[0] == '\0' || strcmp(chat_id, "cron") == 0) {
@@ -284,6 +308,7 @@ static void agent_loop_task(void *arg)
         /* 4. ReAct loop */
         char *final_text = NULL;
         int iteration = 0;
+        int tool_calls_total = 0;
         bool sent_working_status = false;
 
         while (iteration < MIMI_AGENT_MAX_TOOL_ITER) {
@@ -323,6 +348,7 @@ static void agent_loop_task(void *arg)
             }
 
             ESP_LOGI(TAG, "Tool use iteration %d: %d calls", iteration + 1, resp.call_count);
+            tool_calls_total += resp.call_count;
 
             /* Append assistant message with content array */
             cJSON *asst_msg = cJSON_CreateObject();
@@ -345,6 +371,16 @@ static void agent_loop_task(void *arg)
 
         /* 5. Send response */
         if (final_text && final_text[0]) {
+            if (tool_calls_total > 0 &&
+                (strcmp(msg.channel, MIMI_CHAN_FEISHU) == 0 ||
+                 strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0)) {
+                char *with_hint = append_tool_calls_message(final_text, tool_calls_total);
+                if (with_hint) {
+                    free(final_text);
+                    final_text = with_hint;
+                }
+            }
+
             /* Save to session (only user text + final assistant text) */
             esp_err_t save_user = session_append(msg.chat_id, "user", msg.content);
             esp_err_t save_asst = session_append(msg.chat_id, "assistant", final_text);

@@ -376,13 +376,14 @@ static void telegram_poll_task(void *arg)
 {
     ESP_LOGI(TAG, "Telegram polling task started");
 
-    while (1) {
-        if (s_bot_token[0] == '\0') {
-            ESP_LOGW(TAG, "No bot token configured, waiting...");
+    if (s_bot_token[0] == '\0') {
+        ESP_LOGW(TAG, "No bot token configured, waiting...");
+        while (s_bot_token[0] == '\0') {
             vTaskDelay(pdMS_TO_TICKS(5000));
-            continue;
         }
+    }
 
+    while (1) {
         char params[128];
         snprintf(params, sizeof(params),
                  "getUpdates?offset=%" PRId64 "&timeout=%d",
