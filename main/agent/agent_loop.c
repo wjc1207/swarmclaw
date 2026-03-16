@@ -88,27 +88,25 @@ static void append_turn_context_prompt(char *prompt, size_t size, const mimi_msg
     }
 }
 
-static char *append_tool_calls_message(const char *text, int tool_calls)
+static char *build_tool_usage_markdown(int tool_calls)
 {
-    if (!text || tool_calls <= 0) {
-        return text ? strdup(text) : NULL;
+    if (tool_calls <= 0) {
+        return NULL;
     }
 
-    const char *suffix_fmt = "\n\n[tool calls: %d]";
-    int suffix_len = snprintf(NULL, 0, suffix_fmt, tool_calls);
-    if (suffix_len <= 0) {
-        return strdup(text);
+    const char *msg_fmt = "Executed %d tool calls.";
+    int msg_len_i = snprintf(NULL, 0, msg_fmt, tool_calls);
+    if (msg_len_i <= 0) {
+        return NULL;
     }
+    size_t msg_len = (size_t)msg_len_i;
 
-    size_t text_len = strlen(text);
-    size_t out_len = text_len + (size_t)suffix_len;
-    char *out = malloc(out_len + 1);
+    char *out = malloc(msg_len + 1);
     if (!out) {
-        return strdup(text);
+        return NULL;
     }
 
-    memcpy(out, text, text_len);
-    snprintf(out + text_len, (size_t)suffix_len + 1, suffix_fmt, tool_calls);
+    snprintf(out, msg_len + 1, msg_fmt, tool_calls);
     return out;
 }
 
@@ -374,10 +372,16 @@ static void agent_loop_task(void *arg)
             if (tool_calls_total > 0 &&
                 (strcmp(msg.channel, MIMI_CHAN_FEISHU) == 0 ||
                  strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0)) {
-                char *with_hint = append_tool_calls_message(final_text, tool_calls_total);
-                if (with_hint) {
-                    free(final_text);
-                    final_text = with_hint;
+                char *tool_msg_md = build_tool_usage_markdown(tool_calls_total);
+                if (tool_msg_md) {
+                    mimi_msg_t tool_msg = {0};
+                    strncpy(tool_msg.channel, msg.channel, sizeof(tool_msg.channel) - 1);
+                    strncpy(tool_msg.chat_id, msg.chat_id, sizeof(tool_msg.chat_id) - 1);
+                    tool_msg.content = tool_msg_md;
+                    if (message_bus_push_outbound(&tool_msg) != ESP_OK) {
+                        ESP_LOGW(TAG, "Outbound queue full, drop tool summary message");
+                        free(tool_msg_md);
+                    }
                 }
             }
 
