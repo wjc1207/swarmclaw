@@ -4,6 +4,7 @@
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
 #include "tools/tool_gpio.h"
+#include "tools/tool_ble.h"
 #include "tools/tool_http_request.h"
 #include "tools/tool_script.h"
 
@@ -13,7 +14,7 @@
 
 static const char *TAG = "tools";
 
-#define MAX_TOOLS 14
+#define MAX_TOOLS 16
 
 static mimi_tool_t s_tools[MAX_TOOLS];
 static int s_tool_count = 0;
@@ -196,6 +197,22 @@ esp_err_t tool_registry_init(void)
     };
 
     register_tool(&gpio);
+
+    /* Register ble */
+    mimi_tool_t ble = {
+        .name = "ble",
+        .description = "Connect to a BLE temperature/humidity sensor that exposes the Environmental Sensing Service, read measurements, and disconnect.",
+        .input_schema_json =
+            "{\"type\":\"object\","
+            "\"properties\":{"
+            "\"action\":{\"type\":\"string\",\"description\":\"connect, read, or disconnect\"},"
+            "\"addr\":{\"type\":\"string\",\"description\":\"BLE MAC address, required for connect\"},"
+            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Optional timeout in milliseconds\"}"
+            "},"
+            "\"required\":[\"action\"]}",
+        .execute = tool_ble_execute,
+    };
+    register_tool(&ble);
 
  /* Register http_request */
     mimi_tool_t hr = {
