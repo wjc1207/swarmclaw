@@ -1,22 +1,35 @@
-# BLE Temperature Humidity
+# BLE Temperature Humidity (BTHome v2)
 
-Read temperature and humidity from BTHome v2 BLE broadcast packets. Use this when the user wants nearby sensor values without establishing a GATT connection.
+Use this skill to monitor a BLE sensor by scanning advertisements, filtering by MAC, checking BTHome v2 marker, then parsing values.
 
-## Requirements
+Core flow:
+scan all -> filter MAC -> detect BTHome -> parse
 
-- You need the sensor BLE MAC address.
-- The sensor must broadcast BTHome v2 service data UUID `0xFCD2`.
-- Current parser supports BTHome object IDs: temperature `0x02` and humidity `0x03`.
+## BTHome v2 detection
 
-## How to use
+- Service Data UUID is 0xFCD2.
+- In advertisement bytes this appears as D2 FC (little-endian UUID bytes).
+- Minimal marker used by this project: 16 D2 FC.
 
-1. Ask for the BLE MAC address if the user did not provide it.
-2. Call `ble` with `{"action":"connect","addr":"aa:bb:cc:dd:ee:ff"}` to start listening.
-3. Call `ble` with `{"action":"read"}` to get the latest parsed broadcast value.
+## Supported data objects
+
+- 0x02: temperature (divide by 100)
+- 0x03: humidity (divide by 100)
+- 0x01: battery (optional in packet; currently not returned by tool output)
+
+## Tool usage
+
+1. Ask for the sensor MAC address.
+2. Start listening:
+	{"action":"connect","addr":"aa:bb:cc:dd:ee:ff"}
+3. Read latest parsed measurement:
+	{"action":"read"}
 4. Report temperature in C and humidity in %RH.
-5. Call `ble` with `{"action":"disconnect"}` when finished.
+5. Stop listening when done:
+	{"action":"disconnect"}
 
 ## Notes
 
-- If connect fails, tell the user to move the sensor closer, check the MAC address, and confirm the sensor is broadcasting BTHome v2.
-- Encrypted BTHome payloads are not decoded by this implementation.
+- Connect action means start listening, not GATT connect.
+- If no data is returned, ask user to confirm sensor is broadcasting BTHome v2 and within range.
+- Encrypted BTHome payloads are not decoded in current implementation.

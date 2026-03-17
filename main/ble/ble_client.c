@@ -156,6 +156,22 @@ static bool ble_parse_bthome_adv(const uint8_t *adv_data, uint8_t adv_len, ble_m
     return false;
 }
 
+static bool ble_parse_bthome_adv_minimal(const uint8_t *adv_data, uint8_t adv_len, ble_measurement_t *out)
+{
+    if (adv_data == NULL || out == NULL || adv_len < 4) {
+        return false;
+    }
+
+    /* Minimal detector: AD type 0x16 + BTHome UUID 0xFCD2 (little-endian: D2 FC). */
+    for (size_t i = 0; i + 2 < adv_len; i++) {
+        if (adv_data[i] == 0x16 && adv_data[i + 1] == BTHOME_UUID16_LO && adv_data[i + 2] == BTHOME_UUID16_HI) {
+            return ble_parse_bthome_service_data(&adv_data[i + 1], (uint8_t)(adv_len - (i + 1)), out);
+        }
+    }
+
+    return false;
+}
+
 static esp_err_t ble_start_scan_locked(void)
 {
     const struct ble_gap_disc_params scan_params = {
@@ -163,8 +179,8 @@ static esp_err_t ble_start_scan_locked(void)
         .window = 0x30,
         .filter_policy = 0,
         .limited = 0,
-        .passive = 1,
-        .filter_duplicates = 1,
+        .passive = 0,
+        .filter_duplicates = 0,
     };
 
     int rc = ble_gap_disc(s_own_addr_type, BLE_HS_FOREVER, &scan_params, ble_gap_event, NULL);
@@ -192,7 +208,8 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         }
 
         ble_measurement_t measurement = {0};
-        if (ble_parse_bthome_adv(event->disc.data, event->disc.length_data, &measurement)) {
+        if (ble_parse_bthome_adv_minimal(event->disc.data, event->disc.length_data, &measurement) ||
+            ble_parse_bthome_adv(event->disc.data, event->disc.length_data, &measurement)) {
             s_last_measurement = measurement;
             xEventGroupSetBits(s_events, EVT_MEAS_READY);
             ESP_LOGI(TAG, "BTHome v2 adv from %s temp_valid=%d hum_valid=%d", addr_str,
