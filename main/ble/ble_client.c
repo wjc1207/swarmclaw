@@ -1,6 +1,7 @@
 #include "ble/ble_client.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/semphr.h"
+#include "host/ble_gatt.h"
 #include "host/ble_gap.h"
 #include "host/ble_hs.h"
 #include "nimble/nimble_port.h"
@@ -23,10 +25,15 @@ static const char *TAG = "ble_client";
 
 #define EVT_SYNCED          BIT0
 #define EVT_LISTEN_FAILED   BIT1
-#define EVT_MEAS_READY      BIT2
+#define EVT_RAW_READY       BIT2
 
-#define BTHOME_UUID16_LO 0xD2
-#define BTHOME_UUID16_HI 0xFC
+#define BLE_MAX_SERVICES             16
+
+typedef struct {
+    uint16_t uuid;
+    uint16_t start_handle;
+    uint16_t end_handle;
+} ble_service_range_t;
 
 static SemaphoreHandle_t s_mutex;
 static EventGroupHandle_t s_events;
@@ -34,11 +41,32 @@ static bool s_started;
 static bool s_listening;
 static uint8_t s_own_addr_type;
 static char s_target_addr[18];
-static bool s_addr_filter_enabled;
+static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+
+static uint16_t s_svc_start_handle = 0;
+static uint16_t s_svc_end_handle = 0;
+static ble_service_range_t s_services[BLE_MAX_SERVICES];
+static size_t s_service_count = 0;
+
+static ble_raw_data_t s_raw_records[BLE_RAW_MAX_RECORDS];
+static size_t s_raw_count = 0;
+static int s_raw_pending_reads = 0;
 
 static ble_measurement_t s_last_measurement;
 
 static int ble_gap_event(struct ble_gap_event *event, void *arg);
+static int ble_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                           const struct ble_gatt_svc *service, void *arg);
+static int ble_disc_all_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                               const struct ble_gatt_chr *chr, void *arg);
+static int ble_read_raw_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                           struct ble_gatt_attr *attr, void *arg);
+
+static void ble_clear_services(void)
+{
+    memset(s_services, 0, sizeof(s_services));
+    s_service_count = 0;
+}
 
 static void ble_host_task(void *param)
 {
@@ -54,174 +82,206 @@ static void ble_addr_to_str(const ble_addr_t *addr, char *out, size_t out_len)
              addr->val[2], addr->val[1], addr->val[0]);
 }
 
-static int bthome_obj_len(uint8_t id)
+static void ble_clear_raw_records(void)
 {
-    switch (id) {
-    case 0x01: return 1; /* battery u8 */
-    case 0x02: return 2; /* temperature s16, 0.01 C */
-    case 0x03: return 2; /* humidity u16, 0.01 % */
-    case 0x08: return 2;
-    case 0x09: return 2;
-    case 0x0A: return 1;
-    case 0x0B: return 2;
-    case 0x10: return 1;
-    case 0x11: return 1;
-    case 0x12: return 2;
-    case 0x13: return 2;
-    case 0x14: return 1;
-    case 0x15: return 1;
-    case 0x16: return 1;
-    case 0x17: return 1;
-    case 0x18: return 1;
-    default:   return -1;
-    }
+    memset(s_raw_records, 0, sizeof(s_raw_records));
+    s_raw_count = 0;
+    s_raw_pending_reads = 0;
 }
 
-static bool ble_parse_bthome_service_data(const uint8_t *svc, uint8_t svc_len, ble_measurement_t *out)
+static int ble_read_raw_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                           struct ble_gatt_attr *attr, void *arg)
 {
-    if (svc == NULL || out == NULL || svc_len < 3) {
-        return false;
+    (void)conn_handle;
+
+    size_t idx = (size_t)(intptr_t)arg;
+    if (idx >= s_raw_count) {
+        return 0;
     }
 
-    if (svc[0] != BTHOME_UUID16_LO || svc[1] != BTHOME_UUID16_HI) {
-        return false;
-    }
-
-    uint8_t devinfo = svc[2];
-    if ((devinfo & 0x01U) != 0) {
-        /* Encrypted BTHome payload cannot be decoded without key support. */
-        return false;
-    }
-
-    ble_measurement_t parsed = {0};
-    size_t i = 3;
-    while (i < svc_len) {
-        uint8_t obj_id = svc[i++];
-        int len = bthome_obj_len(obj_id);
-        if (len <= 0 || i + (size_t)len > svc_len) {
-            break;
+    if (error->status == 0 && attr != NULL && attr->om != NULL) {
+        uint16_t out_len = 0;
+        int rc = ble_hs_mbuf_to_flat(attr->om, s_raw_records[idx].raw,
+                                     BLE_RAW_MAX_VALUE_LEN, &out_len);
+        if (rc == 0) {
+            s_raw_records[idx].raw_len = out_len;
+            s_raw_records[idx].valid = true;
+            ESP_LOGI(TAG, "Raw read uuid=0x%04x handle=%u len=%u",
+                     s_raw_records[idx].characteristic_uuid,
+                     s_raw_records[idx].value_handle,
+                     s_raw_records[idx].raw_len);
         }
-
-        if (obj_id == 0x02 && len == 2) {
-            int16_t raw = (int16_t)((uint16_t)svc[i] | ((uint16_t)svc[i + 1] << 8));
-            parsed.temperature_c = (float)raw / 100.0f;
-            parsed.temperature_valid = true;
-        } else if (obj_id == 0x03 && len == 2) {
-            uint16_t raw = (uint16_t)svc[i] | ((uint16_t)svc[i + 1] << 8);
-            parsed.humidity_percent = (float)raw / 100.0f;
-            parsed.humidity_valid = true;
-        }
-
-        i += (size_t)len;
+    } else {
+        ESP_LOGW(TAG, "Raw read failed status=%d idx=%u", error->status, (unsigned)idx);
     }
 
-    if (!parsed.temperature_valid && !parsed.humidity_valid) {
-        return false;
+    s_raw_pending_reads--;
+    if (s_raw_pending_reads <= 0) {
+        xEventGroupSetBits(s_events, EVT_RAW_READY);
     }
-
-    *out = parsed;
-    return true;
+    return 0;
 }
 
-static bool ble_parse_bthome_adv(const uint8_t *adv_data, uint8_t adv_len, ble_measurement_t *out)
+static int ble_disc_all_chr_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                               const struct ble_gatt_chr *chr, void *arg)
 {
-    if (adv_data == NULL || out == NULL) {
-        return false;
+    size_t svc_idx = (size_t)(intptr_t)arg;
+    if (svc_idx >= s_service_count) {
+        return 0;
     }
 
-    size_t i = 0;
-    while (i + 1 < adv_len) {
-        uint8_t field_len = adv_data[i];
-        if (field_len == 0) {
-            break;
+    if (error->status == 0 && chr != NULL) {
+        if (s_raw_count < BLE_RAW_MAX_RECORDS) {
+            uint16_t chr_uuid = ble_uuid_u16((const ble_uuid_t *)&chr->uuid);
+            s_raw_records[s_raw_count].service_uuid = s_services[svc_idx].uuid;
+            s_raw_records[s_raw_count].characteristic_uuid = chr_uuid;
+            s_raw_records[s_raw_count].value_handle = chr->val_handle;
+            s_raw_records[s_raw_count].raw_len = 0;
+            s_raw_records[s_raw_count].valid = false;
+            s_raw_count++;
+
+            ESP_LOGI(TAG, "Found characteristic uuid=0x%04x val_handle=%u", chr_uuid, chr->val_handle);
+        }
+        return 0;
+    }
+
+    if (error->status == BLE_HS_EDONE) {
+        if ((svc_idx + 1) < s_service_count) {
+            size_t next_idx = svc_idx + 1;
+            int rc = ble_gattc_disc_all_chrs(conn_handle,
+                                             s_services[next_idx].start_handle,
+                                             s_services[next_idx].end_handle,
+                                             ble_disc_all_chr_cb,
+                                             (void *)(intptr_t)next_idx);
+            if (rc != 0) {
+                ESP_LOGW(TAG, "Start characteristic discovery for next service failed rc=%d", rc);
+                xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
+            }
+            return 0;
         }
 
-        size_t field_total = (size_t)field_len + 1;
-        if (i + field_total > adv_len) {
-            break;
-        }
-
-        uint8_t ad_type = adv_data[i + 1];
-        if (ad_type == 0x16 && field_len >= 3) {
-            const uint8_t *svc = &adv_data[i + 2];
-            uint8_t svc_len = (uint8_t)(field_len - 1);
-            if (ble_parse_bthome_service_data(svc, svc_len, out)) {
-                return true;
+        size_t i;
+        s_raw_pending_reads = 0;
+        ESP_LOGI(TAG, "Characteristic discovery complete, count=%u", (unsigned)s_raw_count);
+        for (i = 0; i < s_raw_count; i++) {
+            int rc = ble_gattc_read(conn_handle, s_raw_records[i].value_handle,
+                                    ble_read_raw_cb, (void *)(intptr_t)i);
+            if (rc == 0) {
+                s_raw_pending_reads++;
+            } else {
+                ESP_LOGW(TAG, "Read start failed handle=%u rc=%d", s_raw_records[i].value_handle, rc);
             }
         }
-
-        i += field_total;
-    }
-
-    return false;
-}
-
-static bool ble_parse_bthome_adv_minimal(const uint8_t *adv_data, uint8_t adv_len, ble_measurement_t *out)
-{
-    if (adv_data == NULL || out == NULL || adv_len < 4) {
-        return false;
-    }
-
-    /* Minimal detector: AD type 0x16 + BTHome UUID 0xFCD2 (little-endian: D2 FC). */
-    for (size_t i = 0; i + 2 < adv_len; i++) {
-        if (adv_data[i] == 0x16 && adv_data[i + 1] == BTHOME_UUID16_LO && adv_data[i + 2] == BTHOME_UUID16_HI) {
-            return ble_parse_bthome_service_data(&adv_data[i + 1], (uint8_t)(adv_len - (i + 1)), out);
+        if (s_raw_pending_reads == 0) {
+            xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
         }
+        return 0;
     }
 
-    return false;
+    ESP_LOGW(TAG, "Characteristic discovery error status=%d", error->status);
+    return 0;
 }
 
-static esp_err_t ble_start_scan_locked(void)
+/* Callback for service discovery (EnvironmentalSensing 0x181A) */
+static int ble_disc_svc_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
+                           const struct ble_gatt_svc *service, void *arg)
 {
-    const struct ble_gap_disc_params scan_params = {
-        .itvl = 0x50,
-        .window = 0x30,
-        .filter_policy = 0,
-        .limited = 0,
-        .passive = 0,
-        .filter_duplicates = 0,
-    };
+    (void)arg;
 
-    int rc = ble_gap_disc(s_own_addr_type, BLE_HS_FOREVER, &scan_params, ble_gap_event, NULL);
-    if (rc == BLE_HS_EALREADY) {
-        return ESP_OK;
-    }
-    if (rc != 0) {
-        ESP_LOGE(TAG, "ble_gap_disc failed rc=%d", rc);
-        return ESP_FAIL;
+    /* Collect all discovered services */
+    if (error->status == 0 && service != NULL) {
+        if (s_service_count < BLE_MAX_SERVICES) {
+            uint16_t svc_uuid = ble_uuid_u16((const ble_uuid_t *)&service->uuid);
+            s_services[s_service_count].uuid = svc_uuid;
+            s_services[s_service_count].start_handle = service->start_handle;
+            s_services[s_service_count].end_handle = service->end_handle;
+            s_service_count++;
+            ESP_LOGI(TAG, "Found service uuid=0x%04x start=%u end=%u",
+                     svc_uuid, service->start_handle, service->end_handle);
+        }
+        return 0;
     }
 
-    return ESP_OK;
+    /* Discovery complete: start characteristic discovery from first service */
+    if (error->status == BLE_HS_EDONE) {
+        if (s_service_count == 0) {
+            xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
+            return 0;
+        }
+
+        s_last_measurement.temperature_valid = false;
+        s_last_measurement.humidity_valid = false;
+        s_svc_start_handle = s_services[0].start_handle;
+        s_svc_end_handle = s_services[0].end_handle;
+        ble_clear_raw_records();
+
+        int rc = ble_gattc_disc_all_chrs(conn_handle,
+                                         s_services[0].start_handle,
+                                         s_services[0].end_handle,
+                                         ble_disc_all_chr_cb,
+                                         (void *)(intptr_t)0);
+        if (rc != 0) {
+            ESP_LOGW(TAG, "Start characteristic discovery failed rc=%d", rc);
+            xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
+        }
+        return 0;
+    }
+
+    /* Log any other errors but continue */
+    if (error->status != 0) {
+        ESP_LOGW(TAG, "Service discovery error status=%d", error->status);
+    }
+
+    return 0;
 }
 
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
 {
     (void)arg;
 
+    struct ble_gap_conn_desc desc;
+
     switch (event->type) {
-    case BLE_GAP_EVENT_DISC: {
-        char addr_str[18] = {0};
-        ble_addr_to_str(&event->disc.addr, addr_str, sizeof(addr_str));
-        if (s_addr_filter_enabled && strcasecmp(addr_str, s_target_addr) != 0) {
+    case BLE_GAP_EVENT_CONNECT: {
+        int rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
+        if (rc != 0) {
+            ESP_LOGE(TAG, "BLE_GAP_EVENT_CONNECT: Failed to find conn_handle=%d", event->connect.conn_handle);
+            xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
             return 0;
         }
 
-        ble_measurement_t measurement = {0};
-        if (ble_parse_bthome_adv_minimal(event->disc.data, event->disc.length_data, &measurement) ||
-            ble_parse_bthome_adv(event->disc.data, event->disc.length_data, &measurement)) {
-            s_last_measurement = measurement;
-            xEventGroupSetBits(s_events, EVT_MEAS_READY);
-            ESP_LOGI(TAG, "BTHome v2 adv from %s temp_valid=%d hum_valid=%d", addr_str,
-                     measurement.temperature_valid, measurement.humidity_valid);
+        char addr_str[18] = {0};
+        ble_addr_to_str(&desc.peer_ota_addr, addr_str, sizeof(addr_str));
+        
+        if (strcasecmp(addr_str, s_target_addr) != 0) {
+            /* Not our target device, disconnect */
+            ble_gap_terminate(event->connect.conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+            return 0;
+        }
+
+        ESP_LOGI(TAG, "Connected to %s conn_handle=%d", addr_str, event->connect.conn_handle);
+        s_conn_handle = event->connect.conn_handle;
+        s_last_measurement.temperature_valid = false;
+        s_last_measurement.humidity_valid = false;
+        s_last_measurement.battery_valid = false;
+        s_svc_start_handle = 0;
+        s_svc_end_handle = 0;
+        ble_clear_services();
+        ble_clear_raw_records();
+
+        /* Start full service discovery */
+        rc = ble_gattc_disc_all_svcs(s_conn_handle, ble_disc_svc_cb, NULL);
+        if (rc != 0) {
+            ESP_LOGE(TAG, "Service discovery start failed rc=%d", rc);
         }
         return 0;
     }
-    case BLE_GAP_EVENT_DISC_COMPLETE:
-        if (s_listening) {
-            (void)ble_start_scan_locked();
-        }
+
+    case BLE_GAP_EVENT_DISCONNECT:
+        ESP_LOGW(TAG, "Disconnected, reason=%d", event->disconnect.reason);
+        s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
         return 0;
+
     default:
         return 0;
     }
@@ -231,7 +291,7 @@ static void ble_on_reset(int reason)
 {
     ESP_LOGE(TAG, "BLE reset reason=%d", reason);
     s_listening = false;
-    xEventGroupClearBits(s_events, EVT_SYNCED | EVT_MEAS_READY);
+    xEventGroupClearBits(s_events, EVT_SYNCED | EVT_RAW_READY);
     xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
 }
 
@@ -307,30 +367,54 @@ esp_err_t ble_client_connect(const char *target_addr, uint32_t timeout_ms)
     }
 
     strlcpy(s_target_addr, target_addr, sizeof(s_target_addr));
-    s_addr_filter_enabled = true;
     s_listening = true;
+    s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+    s_svc_start_handle = 0;
+    s_svc_end_handle = 0;
+    ble_clear_services();
+    ble_clear_raw_records();
     s_last_measurement.temperature_valid = false;
     s_last_measurement.humidity_valid = false;
+    s_last_measurement.battery_valid = false;
 
-    xEventGroupClearBits(s_events, EVT_LISTEN_FAILED | EVT_MEAS_READY);
+    xEventGroupClearBits(s_events, EVT_LISTEN_FAILED | EVT_RAW_READY);
 
-    esp_err_t start_err = ble_start_scan_locked();
-    if (start_err != ESP_OK) {
+    /* Parse target address */
+    ble_addr_t peer_addr = {0};
+    int rc = sscanf(target_addr, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                    &peer_addr.val[5], &peer_addr.val[4], &peer_addr.val[3],
+                    &peer_addr.val[2], &peer_addr.val[1], &peer_addr.val[0]);
+    if (rc != 6) {
+        ESP_LOGE(TAG, "Invalid address format: %s", target_addr);
         s_listening = false;
         xSemaphoreGive(s_mutex);
-        return start_err;
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    peer_addr.type = BLE_ADDR_PUBLIC;
+
+    ESP_LOGI(TAG, "GATT Mode: Initiating BLE connection to %s", target_addr);
+    rc = ble_gap_connect(s_own_addr_type, &peer_addr, timeout_ms, NULL, ble_gap_event, NULL);
+    if (rc != 0 && rc != BLE_HS_EALREADY) {
+        ESP_LOGE(TAG, "ble_gap_connect failed: %d", rc);
+        s_listening = false;
+        xSemaphoreGive(s_mutex);
+        return ESP_FAIL;
     }
 
     xSemaphoreGive(s_mutex);
 
-    EventBits_t bits = xEventGroupWaitBits(s_events, EVT_MEAS_READY | EVT_LISTEN_FAILED,
+    /* Wait for raw data to arrive */
+    EventBits_t bits = xEventGroupWaitBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED,
                                            pdFALSE, pdFALSE, pdMS_TO_TICKS(timeout_ms));
-    if (bits & EVT_MEAS_READY) {
-        return ESP_OK;
+
+    if ((bits & EVT_RAW_READY) == 0) {
+        ESP_LOGE(TAG, "No raw data received, timeout or error");
+        (void)ble_client_disconnect(1000);
+        return ESP_ERR_TIMEOUT;
     }
 
-    (void)ble_client_disconnect(1000);
-    return (bits & EVT_LISTEN_FAILED) ? ESP_FAIL : ESP_ERR_TIMEOUT;
+    return ESP_OK;
 }
 
 esp_err_t ble_client_read_measurement(ble_measurement_t *measurement, uint32_t timeout_ms)
@@ -346,19 +430,88 @@ esp_err_t ble_client_read_measurement(ble_measurement_t *measurement, uint32_t t
         timeout_ms = DEFAULT_READ_TIMEOUT_MS;
     }
 
-    if (s_last_measurement.temperature_valid || s_last_measurement.humidity_valid) {
+    /* If we have valid measurements in cache, return them */
+    if (s_last_measurement.temperature_valid || s_last_measurement.humidity_valid ||
+        s_last_measurement.battery_valid) {
         *measurement = s_last_measurement;
         return ESP_OK;
     }
 
-    EventBits_t bits = xEventGroupWaitBits(s_events, EVT_MEAS_READY | EVT_LISTEN_FAILED,
+    /* Otherwise issue raw reads for all discovered characteristics */
+    xEventGroupClearBits(s_events, EVT_RAW_READY);
+    s_raw_pending_reads = 0;
+    for (size_t i = 0; i < s_raw_count; i++) {
+        s_raw_records[i].valid = false;
+        s_raw_records[i].raw_len = 0;
+        int rc = ble_gattc_read(s_conn_handle, s_raw_records[i].value_handle,
+                                ble_read_raw_cb, (void *)(intptr_t)i);
+        if (rc == 0) {
+            s_raw_pending_reads++;
+        }
+    }
+
+    if (s_raw_pending_reads == 0) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    /* Wait for reads to complete */
+    EventBits_t bits = xEventGroupWaitBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED,
                                            pdFALSE, pdFALSE, pdMS_TO_TICKS(timeout_ms));
-    if (bits & EVT_MEAS_READY) {
+    if (bits & EVT_RAW_READY) {
         *measurement = s_last_measurement;
         return ESP_OK;
     }
 
     return (bits & EVT_LISTEN_FAILED) ? ESP_FAIL : ESP_ERR_TIMEOUT;
+}
+
+esp_err_t ble_client_read_all_raw(ble_raw_data_t *out_records, size_t max_records,
+                                  size_t *out_count, uint32_t timeout_ms)
+{
+    if (out_records == NULL || out_count == NULL || max_records == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (!s_listening) {
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    if (timeout_ms == 0) {
+        timeout_ms = DEFAULT_READ_TIMEOUT_MS;
+    }
+
+    xEventGroupClearBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED);
+    s_raw_pending_reads = 0;
+    for (size_t i = 0; i < s_raw_count; i++) {
+        s_raw_records[i].valid = false;
+        s_raw_records[i].raw_len = 0;
+        int rc = ble_gattc_read(s_conn_handle, s_raw_records[i].value_handle,
+                                ble_read_raw_cb, (void *)(intptr_t)i);
+        if (rc == 0) {
+            s_raw_pending_reads++;
+        }
+    }
+
+    if (s_raw_pending_reads == 0) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    EventBits_t bits = xEventGroupWaitBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED,
+                                           pdFALSE, pdFALSE, pdMS_TO_TICKS(timeout_ms));
+    if ((bits & EVT_RAW_READY) == 0) {
+        return (bits & EVT_LISTEN_FAILED) ? ESP_FAIL : ESP_ERR_TIMEOUT;
+    }
+
+    size_t copied = 0;
+    for (size_t i = 0; i < s_raw_count && copied < max_records; i++) {
+        if (!s_raw_records[i].valid) {
+            continue;
+        }
+        out_records[copied] = s_raw_records[i];
+        copied++;
+    }
+    *out_count = copied;
+
+    return copied > 0 ? ESP_OK : ESP_ERR_NOT_FOUND;
 }
 
 esp_err_t ble_client_disconnect(uint32_t timeout_ms)
@@ -372,19 +525,25 @@ esp_err_t ble_client_disconnect(uint32_t timeout_ms)
     }
 
     s_listening = false;
-    s_addr_filter_enabled = false;
     s_target_addr[0] = '\0';
     s_last_measurement.temperature_valid = false;
     s_last_measurement.humidity_valid = false;
-    xEventGroupClearBits(s_events, EVT_MEAS_READY | EVT_LISTEN_FAILED);
+    s_last_measurement.battery_valid = false;
+    xEventGroupClearBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED);
 
-    int rc = ble_gap_disc_cancel();
-    xSemaphoreGive(s_mutex);
-
-    if (rc == 0 || rc == BLE_HS_EALREADY || rc == BLE_HS_EBUSY || rc == BLE_HS_EINVAL) {
-        return ESP_OK;
+    if (s_conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+        int rc = ble_gap_terminate(s_conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+        if (rc != 0 && rc != BLE_HS_EALREADY && rc != BLE_HS_EBUSY) {
+            ESP_LOGW(TAG, "ble_gap_terminate rc=%d", rc);
+        }
+        s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
     }
 
-    ESP_LOGW(TAG, "ble_gap_disc_cancel rc=%d", rc);
-    return ESP_FAIL;
+    s_svc_start_handle = 0;
+    s_svc_end_handle = 0;
+    ble_clear_services();
+    ble_clear_raw_records();
+
+    xSemaphoreGive(s_mutex);
+    return ESP_OK;
 }

@@ -201,13 +201,13 @@ esp_err_t tool_registry_init(void)
     /* Register ble */
     mimi_tool_t ble = {
         .name = "ble",
-        .description = "Start passive listening for BTHome v2 BLE advertisements from a sensor MAC address, read temperature/humidity from broadcasts, and stop listening.",
+        .description = "Connect to a specific BLE address, read parsed BTHome sensor data, and disconnect.",
         .input_schema_json =
             "{\"type\":\"object\","
             "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"description\":\"connect, read, or disconnect\"},"
+            "\"action\":{\"type\":\"string\",\"enum\":[\"connect\",\"read\",\"disconnect\"]},"
             "\"addr\":{\"type\":\"string\",\"description\":\"BLE MAC address, required for connect\"},"
-            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Optional timeout in milliseconds\"}"
+            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Timeout in milliseconds\"}"
             "},"
             "\"required\":[\"action\"]}",
         .execute = tool_ble_execute,

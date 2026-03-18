@@ -63,29 +63,54 @@ esp_err_t tool_ble_execute(const char *input_json, char *output, size_t output_s
         cJSON_AddBoolToObject(resp, "ok", err == ESP_OK);
         cJSON_AddStringToObject(resp, "action", "connect");
         cJSON_AddStringToObject(resp, "addr", addr_buf);
-        cJSON_AddStringToObject(resp, "status", err == ESP_OK ? "listening" : "failed");
+        cJSON_AddStringToObject(resp, "status", err == ESP_OK ? "connected" : "failed");
         if (err != ESP_OK) {
             cJSON_AddStringToObject(resp, "error", esp_err_to_name(err));
         }
-        ESP_LOGI(TAG, "BLE listen start %s -> %s", addr_buf, err == ESP_OK ? "ok" : "fail");
+        ESP_LOGI(TAG, "BLE connect %s -> %s", addr_buf, err == ESP_OK ? "ok" : "fail");
         return render_json(resp, output, output_size, err);
     }
 
     if (strcmp(action, "read") == 0) {
-        ble_measurement_t measurement = {0};
-        esp_err_t err = ble_client_read_measurement(&measurement, timeout_ms);
+        ble_raw_data_t records[BLE_RAW_MAX_RECORDS] = {0};
+        size_t record_count = 0;
+        esp_err_t err = ble_client_read_all_raw(records, BLE_RAW_MAX_RECORDS, &record_count, timeout_ms);
         cJSON_Delete(root);
 
         cJSON *resp = cJSON_CreateObject();
         cJSON_AddBoolToObject(resp, "ok", err == ESP_OK);
         cJSON_AddStringToObject(resp, "action", "read");
+        cJSON_AddNumberToObject(resp, "timeout_ms", timeout_ms);
+        cJSON_AddStringToObject(resp, "status", err == ESP_OK ? "ok" : "failed");
         if (err == ESP_OK) {
-            cJSON *values = cJSON_CreateObject();
-            cJSON_AddNumberToObject(values, "temperature_c", measurement.temperature_c);
-            cJSON_AddNumberToObject(values, "humidity_percent", measurement.humidity_percent);
-            cJSON_AddBoolToObject(values, "temperature_valid", measurement.temperature_valid);
-            cJSON_AddBoolToObject(values, "humidity_valid", measurement.humidity_valid);
-            cJSON_AddItemToObject(resp, "measurement", values);
+            cJSON *arr = cJSON_CreateArray();
+            for (size_t i = 0; i < record_count; i++) {
+                cJSON *item = cJSON_CreateObject();
+                char svc_uuid[7] = {0};
+                char chr_uuid[7] = {0};
+                char raw_hex[(BLE_RAW_MAX_VALUE_LEN * 3) + 1];
+                size_t pos = 0;
+
+                snprintf(svc_uuid, sizeof(svc_uuid), "0x%04X", records[i].service_uuid);
+                snprintf(chr_uuid, sizeof(chr_uuid), "0x%04X", records[i].characteristic_uuid);
+                memset(raw_hex, 0, sizeof(raw_hex));
+                for (size_t j = 0; j < records[i].raw_len && j < BLE_RAW_MAX_VALUE_LEN; j++) {
+                    if (pos + 3 >= sizeof(raw_hex)) {
+                        break;
+                    }
+                    pos += (size_t)snprintf(&raw_hex[pos], sizeof(raw_hex) - pos,
+                                            (j == 0) ? "%02X" : "-%02X", records[i].raw[j]);
+                }
+
+                cJSON_AddStringToObject(item, "service_uuid", svc_uuid);
+                cJSON_AddStringToObject(item, "characteristic_uuid", chr_uuid);
+                cJSON_AddNumberToObject(item, "value_handle", records[i].value_handle);
+                cJSON_AddNumberToObject(item, "raw_len", records[i].raw_len);
+                cJSON_AddStringToObject(item, "raw_hex", raw_hex);
+                cJSON_AddItemToArray(arr, item);
+            }
+            cJSON_AddItemToObject(resp, "services_raw", arr);
+            cJSON_AddNumberToObject(resp, "count", (double)record_count);
         } else {
             cJSON_AddStringToObject(resp, "error", esp_err_to_name(err));
         }
