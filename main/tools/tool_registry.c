@@ -4,7 +4,6 @@
 #include "tools/tool_files.h"
 #include "tools/tool_cron.h"
 #include "tools/tool_gpio.h"
-#include "tools/tool_ble.h"
 #include "tools/tool_http_request.h"
 #include "tools/tool_script.h"
 
@@ -197,22 +196,6 @@ esp_err_t tool_registry_init(void)
     };
 
     register_tool(&gpio);
-
-    /* Register ble */
-    mimi_tool_t ble = {
-        .name = "ble",
-        .description = "Connect to a specific BLE address, read parsed BTHome sensor data, and disconnect.",
-        .input_schema_json =
-            "{\"type\":\"object\","
-            "\"properties\":{"
-            "\"action\":{\"type\":\"string\",\"enum\":[\"connect\",\"read\",\"disconnect\"]},"
-            "\"addr\":{\"type\":\"string\",\"description\":\"BLE MAC address, required for connect\"},"
-            "\"timeout_ms\":{\"type\":\"integer\",\"description\":\"Timeout in milliseconds\"}"
-            "},"
-            "\"required\":[\"action\"]}",
-        .execute = tool_ble_execute,
-    };
-    register_tool(&ble);
 
  /* Register http_request */
     mimi_tool_t hr = {
