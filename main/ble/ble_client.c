@@ -50,7 +50,8 @@ static size_t s_service_count = 0;
 
 static ble_raw_data_t s_raw_records[BLE_RAW_MAX_RECORDS];
 static size_t s_raw_count = 0;
-static int s_raw_pending_reads = 0;
+static size_t s_raw_next_read_idx = 0;
+static int s_raw_inflight_reads = 0;
 
 static ble_measurement_t s_last_measurement;
 
@@ -61,6 +62,21 @@ static int ble_disc_all_chr_cb(uint16_t conn_handle, const struct ble_gatt_error
                                const struct ble_gatt_chr *chr, void *arg);
 static int ble_read_raw_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
                            struct ble_gatt_attr *attr, void *arg);
+
+static bool ble_start_next_raw_read(uint16_t conn_handle)
+{
+    while (s_raw_next_read_idx < s_raw_count) {
+        size_t idx = s_raw_next_read_idx++;
+        int rc = ble_gattc_read(conn_handle, s_raw_records[idx].value_handle,
+                                ble_read_raw_cb, (void *)(intptr_t)idx);
+        if (rc == 0) {
+            s_raw_inflight_reads++;
+            return true;
+        }
+        ESP_LOGW(TAG, "Read start failed handle=%u rc=%d", s_raw_records[idx].value_handle, rc);
+    }
+    return false;
+}
 
 static void ble_clear_services(void)
 {
@@ -86,7 +102,8 @@ static void ble_clear_raw_records(void)
 {
     memset(s_raw_records, 0, sizeof(s_raw_records));
     s_raw_count = 0;
-    s_raw_pending_reads = 0;
+    s_raw_next_read_idx = 0;
+    s_raw_inflight_reads = 0;
 }
 
 static int ble_read_raw_cb(uint16_t conn_handle, const struct ble_gatt_error *error,
@@ -115,8 +132,11 @@ static int ble_read_raw_cb(uint16_t conn_handle, const struct ble_gatt_error *er
         ESP_LOGW(TAG, "Raw read failed status=%d idx=%u", error->status, (unsigned)idx);
     }
 
-    s_raw_pending_reads--;
-    if (s_raw_pending_reads <= 0) {
+    if (s_raw_inflight_reads > 0) {
+        s_raw_inflight_reads--;
+    }
+
+    if (!ble_start_next_raw_read(conn_handle) && s_raw_inflight_reads == 0) {
         xEventGroupSetBits(s_events, EVT_RAW_READY);
     }
     return 0;
@@ -161,18 +181,15 @@ static int ble_disc_all_chr_cb(uint16_t conn_handle, const struct ble_gatt_error
         }
 
         size_t i;
-        s_raw_pending_reads = 0;
         ESP_LOGI(TAG, "Characteristic discovery complete, count=%u", (unsigned)s_raw_count);
         for (i = 0; i < s_raw_count; i++) {
-            int rc = ble_gattc_read(conn_handle, s_raw_records[i].value_handle,
-                                    ble_read_raw_cb, (void *)(intptr_t)i);
-            if (rc == 0) {
-                s_raw_pending_reads++;
-            } else {
-                ESP_LOGW(TAG, "Read start failed handle=%u rc=%d", s_raw_records[i].value_handle, rc);
-            }
+            s_raw_records[i].valid = false;
+            s_raw_records[i].raw_len = 0;
         }
-        if (s_raw_pending_reads == 0) {
+
+        s_raw_next_read_idx = 0;
+        s_raw_inflight_reads = 0;
+        if (!ble_start_next_raw_read(conn_handle)) {
             xEventGroupSetBits(s_events, EVT_LISTEN_FAILED);
         }
         return 0;
@@ -438,19 +455,16 @@ esp_err_t ble_client_read_measurement(ble_measurement_t *measurement, uint32_t t
     }
 
     /* Otherwise issue raw reads for all discovered characteristics */
-    xEventGroupClearBits(s_events, EVT_RAW_READY);
-    s_raw_pending_reads = 0;
+    xEventGroupClearBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED);
     for (size_t i = 0; i < s_raw_count; i++) {
         s_raw_records[i].valid = false;
         s_raw_records[i].raw_len = 0;
-        int rc = ble_gattc_read(s_conn_handle, s_raw_records[i].value_handle,
-                                ble_read_raw_cb, (void *)(intptr_t)i);
-        if (rc == 0) {
-            s_raw_pending_reads++;
-        }
     }
 
-    if (s_raw_pending_reads == 0) {
+    s_raw_next_read_idx = 0;
+    s_raw_inflight_reads = 0;
+
+    if (!ble_start_next_raw_read(s_conn_handle)) {
         return ESP_ERR_NOT_FOUND;
     }
 
@@ -480,18 +494,15 @@ esp_err_t ble_client_read_all_raw(ble_raw_data_t *out_records, size_t max_record
     }
 
     xEventGroupClearBits(s_events, EVT_RAW_READY | EVT_LISTEN_FAILED);
-    s_raw_pending_reads = 0;
     for (size_t i = 0; i < s_raw_count; i++) {
         s_raw_records[i].valid = false;
         s_raw_records[i].raw_len = 0;
-        int rc = ble_gattc_read(s_conn_handle, s_raw_records[i].value_handle,
-                                ble_read_raw_cb, (void *)(intptr_t)i);
-        if (rc == 0) {
-            s_raw_pending_reads++;
-        }
     }
 
-    if (s_raw_pending_reads == 0) {
+    s_raw_next_read_idx = 0;
+    s_raw_inflight_reads = 0;
+
+    if (!ble_start_next_raw_read(s_conn_handle)) {
         return ESP_ERR_NOT_FOUND;
     }
 
