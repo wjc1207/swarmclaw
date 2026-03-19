@@ -27,6 +27,7 @@ idf_component_register(
         "lua/lua_runner.c"
         "lua/lua_gpio_lib.c"
         "skills/skill_loader.c"
+        "onboard/wifi_onboard.c"
     INCLUDE_DIRS
         "."
     REQUIRES

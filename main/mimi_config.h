@@ -43,8 +43,14 @@
 #ifndef MIMI_SECRET_PROXY_PORT
 #define MIMI_SECRET_PROXY_PORT      ""
 #endif
+#ifndef MIMI_SECRET_PROXY_TYPE
+#define MIMI_SECRET_PROXY_TYPE      ""
+#endif
 #ifndef MIMI_SECRET_SEARCH_KEY
 #define MIMI_SECRET_SEARCH_KEY      ""
+#endif
+#ifndef MIMI_SECRET_TAVILY_KEY
+#define MIMI_SECRET_TAVILY_KEY      ""
 #endif
 #ifndef MIMI_SECRET_SEARCH_PROVIDER
 #define MIMI_SECRET_SEARCH_PROVIDER "tavily"
@@ -153,6 +159,15 @@
 #define MIMI_NVS_KEY_API_KEY         "api_key"
 #define MIMI_NVS_KEY_MODEL           "model"
 #define MIMI_NVS_KEY_PROVIDER        "provider"
+#define MIMI_NVS_KEY_TAVILY_KEY      "tavily_key"
 #define MIMI_NVS_KEY_PROXY_HOST      "host"
 #define MIMI_NVS_KEY_PROXY_PORT      "port"
+#define MIMI_NVS_KEY_PROXY_TYPE      "proxy_type"
 #define MIMI_NVS_KEY_SEARCH_PROVIDER "search_provider"
+
+/* WiFi Onboarding (Captive Portal) */
+#define MIMI_ONBOARD_AP_PREFIX    "MimiClaw-"
+#define MIMI_ONBOARD_AP_PASS      ""          /* open network */
+#define MIMI_ONBOARD_HTTP_PORT    80
+#define MIMI_ONBOARD_DNS_STACK    (4 * 1024)
+#define MIMI_ONBOARD_MAX_SCAN     20

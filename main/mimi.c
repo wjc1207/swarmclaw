@@ -25,6 +25,7 @@
 #include "cron/cron_service.h"
 #include "heartbeat/heartbeat.h"
 #include "skills/skill_loader.h"
+#include "onboard/wifi_onboard.h"
 
 static const char *TAG = "mimi";
 
@@ -141,35 +142,49 @@ void app_main(void)
 
     /* Start WiFi */
     esp_err_t wifi_err = wifi_manager_start();
+    bool wifi_ok = false;
     if (wifi_err == ESP_OK) {
         ESP_LOGI(TAG, "Scanning nearby APs on boot...");
         wifi_manager_scan_and_print();
         ESP_LOGI(TAG, "Waiting for WiFi connection...");
         if (wifi_manager_wait_connected(30000) == ESP_OK) {
+            wifi_ok = true;
             ESP_LOGI(TAG, "WiFi connected: IPv4=%s IPv6=%s",
                      wifi_manager_get_ip(), wifi_manager_get_ipv6());
-
-            /* Outbound dispatch task should start first to avoid dropping early replies. */
-            ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
-                outbound_dispatch_task, "outbound",
-                MIMI_OUTBOUND_STACK, NULL,
-                MIMI_OUTBOUND_PRIO, NULL, MIMI_OUTBOUND_CORE) == pdPASS)
-                ? ESP_OK : ESP_FAIL);
-
-            /* Start network-dependent services */
-            ESP_ERROR_CHECK(agent_loop_start());
-            ESP_ERROR_CHECK(telegram_bot_start());
-            ESP_ERROR_CHECK(feishu_bot_start());
-            cron_service_start();
-            heartbeat_start();
-            ESP_ERROR_CHECK(ws_server_start());
-
-            ESP_LOGI(TAG, "All services started!");
         } else {
-            ESP_LOGW(TAG, "WiFi connection timeout. Check MIMI_SECRET_WIFI_SSID in mimi_secrets.h");
+            ESP_LOGW(TAG, "WiFi connection timeout");
         }
     } else {
-        ESP_LOGW(TAG, "No WiFi credentials. Set MIMI_SECRET_WIFI_SSID in mimi_secrets.h");
+        ESP_LOGW(TAG, "No WiFi credentials configured");
+    }
+
+    if (!wifi_ok) {
+        ESP_LOGW(TAG, "Entering WiFi onboarding mode...");
+        wifi_onboard_start(WIFI_ONBOARD_MODE_CAPTIVE);  /* blocks, restarts on success */
+        return;  /* unreachable */
+    }
+
+    if (wifi_onboard_start(WIFI_ONBOARD_MODE_ADMIN) != ESP_OK) {
+        ESP_LOGW(TAG, "Local admin portal unavailable; continuing without config hotspot");
+    }
+
+    {
+        /* Outbound dispatch task should start first to avoid dropping early replies. */
+        ESP_ERROR_CHECK((xTaskCreatePinnedToCore(
+            outbound_dispatch_task, "outbound",
+            MIMI_OUTBOUND_STACK, NULL,
+            MIMI_OUTBOUND_PRIO, NULL, MIMI_OUTBOUND_CORE) == pdPASS)
+            ? ESP_OK : ESP_FAIL);
+
+        /* Start network-dependent services */
+        ESP_ERROR_CHECK(agent_loop_start());
+        ESP_ERROR_CHECK(telegram_bot_start());
+        ESP_ERROR_CHECK(feishu_bot_start());
+        cron_service_start();
+        heartbeat_start();
+        ESP_ERROR_CHECK(ws_server_start());
+
+        ESP_LOGI(TAG, "All services started!");
     }
 
     ESP_LOGI(TAG, "MimiClaw ready. Type 'help' for CLI commands.");

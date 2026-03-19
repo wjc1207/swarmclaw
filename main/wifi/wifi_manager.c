@@ -22,6 +22,7 @@ static int s_retry_count = 0;
 static char s_ip_str[16] = "0.0.0.0";
 static char s_ipv6_str[40] = "::";
 static bool s_connected = false;
+static bool s_reconnect_enabled = true;
 static bool s_sntp_initialized = false;
 
 static const char *wifi_reason_to_str(wifi_err_reason_t reason)
@@ -97,7 +98,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
         if (disc) {
             ESP_LOGW(TAG, "Disconnected (reason=%d:%s)", disc->reason, wifi_reason_to_str(disc->reason));
         }
-        if (s_retry_count < MIMI_WIFI_MAX_RETRY) {
+        if (s_reconnect_enabled && s_retry_count < MIMI_WIFI_MAX_RETRY) {
             /* Exponential backoff: 1s, 2s, 4s, 8s, ... capped at 30s */
             uint32_t delay_ms = MIMI_WIFI_RETRY_BASE_MS << s_retry_count;
             if (delay_ms > MIMI_WIFI_RETRY_MAX_MS) {
@@ -190,6 +191,7 @@ esp_err_t wifi_manager_start(void)
         return ESP_ERR_NOT_FOUND;
     }
 
+    s_reconnect_enabled = true;
     ESP_LOGI(TAG, "Connecting to SSID: %s", wifi_cfg.sta.ssid);
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg));
@@ -304,4 +306,24 @@ void wifi_manager_scan_and_print(void)
 
     free(ap_list);
     esp_wifi_connect();
+}
+
+esp_err_t wifi_manager_stop(void)
+{
+    s_reconnect_enabled = false;
+    esp_wifi_disconnect();
+    esp_wifi_stop();
+    s_connected = false;
+    s_retry_count = 0;
+    xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
+    ESP_LOGI(TAG, "WiFi stopped");
+    return ESP_OK;
+}
+
+void wifi_manager_set_reconnect_enabled(bool enabled)
+{
+    s_reconnect_enabled = enabled;
+    if (!enabled) {
+        s_retry_count = 0;
+    }
 }
