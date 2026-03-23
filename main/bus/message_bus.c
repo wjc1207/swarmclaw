@@ -65,7 +65,6 @@ esp_err_t mimi_msg_free(mimi_msg_t *msg)
     if (strcmp(msg->type, "text") == 0) {
 
         if (msg->payload.text) {
-            ESP_LOGI("FREE", "free text ptr=%p", msg->payload.text);
             free(msg->payload.text);
             msg->payload.text = NULL;
         }
@@ -73,13 +72,11 @@ esp_err_t mimi_msg_free(mimi_msg_t *msg)
     } else if (strcmp(msg->type, "collapsible") == 0) {
 
         if (msg->payload.collapsible.title) {
-            ESP_LOGI("FREE", "free title ptr=%p", msg->payload.collapsible.title);
             free(msg->payload.collapsible.title);
             msg->payload.collapsible.title = NULL;
         }
 
         if (msg->payload.collapsible.body) {
-            ESP_LOGI("FREE", "free body ptr=%p", msg->payload.collapsible.body);
             free(msg->payload.collapsible.body);
             msg->payload.collapsible.body = NULL;
         }
