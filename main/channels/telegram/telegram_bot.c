@@ -442,16 +442,16 @@ esp_err_t telegram_bot_start(void)
     return (ret == pdPASS) ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t telegram_send_message(const mimi_msg_t msg)
+esp_err_t telegram_send_message(const mimi_msg_t *msg)
 {
     if (s_bot_token[0] == '\0') {
         ESP_LOGW(TAG, "Cannot send: no bot token");
         return ESP_ERR_INVALID_STATE;
     }
 
-    if (strcmp(msg.type , "text") == 0) {
+    if (strcmp(msg->type , "text") == 0) {
         /* Split long messages at 4096-char boundary */
-        size_t text_len = strlen(msg.payload.text);
+        size_t text_len = strlen(msg->payload.text);
         size_t offset = 0;
         int all_ok = 1;
 
@@ -463,7 +463,7 @@ esp_err_t telegram_send_message(const mimi_msg_t msg)
 
             /* Build JSON body */
             cJSON *body = cJSON_CreateObject();
-            cJSON_AddStringToObject(body, "chat_id", msg.chat_id);
+            cJSON_AddStringToObject(body, "chat_id", msg->chat_id);
 
             /* Create null-terminated chunk */
             char *segment = malloc(chunk + 1);
@@ -471,7 +471,7 @@ esp_err_t telegram_send_message(const mimi_msg_t msg)
                 cJSON_Delete(body);
                 return ESP_ERR_NO_MEM;
             }
-            memcpy(segment, msg.payload.text + offset, chunk);
+            memcpy(segment, msg->payload.text + offset, chunk);
             segment[chunk] = '\0';
 
             cJSON_AddStringToObject(body, "text", segment);
@@ -487,7 +487,7 @@ esp_err_t telegram_send_message(const mimi_msg_t msg)
                 continue;
             }
 
-            ESP_LOGI(TAG, "Sending telegram chunk to %s (%d bytes)", msg.chat_id, (int)chunk);
+            ESP_LOGI(TAG, "Sending telegram chunk to %s (%d bytes)", msg->chat_id, (int)chunk);
             char *resp = tg_api_call("sendMessage", json_str);
             free(json_str);
 
@@ -499,17 +499,17 @@ esp_err_t telegram_send_message(const mimi_msg_t msg)
                 if (!sent_ok) {
                     markdown_failed = true;
                     ESP_LOGI(TAG, "Markdown rejected by Telegram for %s: %s",
-                            msg.chat_id, desc ? desc : "unknown");
+                            msg->chat_id, desc ? desc : "unknown");
                 }
             }
 
             if (!sent_ok) {
                 /* Retry without parse_mode */
                 cJSON *body2 = cJSON_CreateObject();
-                cJSON_AddStringToObject(body2, "chat_id", msg.chat_id);
+                cJSON_AddStringToObject(body2, "chat_id", msg->chat_id);
                 char *seg2 = malloc(chunk + 1);
                 if (seg2) {
-                    memcpy(seg2, msg.payload.text + offset, chunk);
+                    memcpy(seg2, msg->payload.text + offset, chunk);
                     seg2[chunk] = '\0';
                     cJSON_AddStringToObject(body2, "text", seg2);
                     free(seg2);
@@ -539,32 +539,32 @@ esp_err_t telegram_send_message(const mimi_msg_t msg)
                 all_ok = 0;
             } else {
                 if (markdown_failed) {
-                    ESP_LOGI(TAG, "Plain-text fallback succeeded for %s", msg.chat_id);
+                    ESP_LOGI(TAG, "Plain-text fallback succeeded for %s", msg->chat_id);
                 }
-                ESP_LOGI(TAG, "Telegram send success to %s (%d bytes)", msg.chat_id, (int)chunk);
+                ESP_LOGI(TAG, "Telegram send success to %s (%d bytes)", msg->chat_id, (int)chunk);
             }
 
             free(resp);
             offset += chunk;
         }
     }
-    else if (strcmp(msg.type , "collapsible") == 0) {
+    else if (strcmp(msg->type , "collapsible") == 0) {
         /* For collapsible, send title and body together */
         char combined[4096];
-        snprintf(combined, sizeof(combined), "*%s*\n\n%s", msg.payload.collapsible.title, msg.payload.collapsible.body);
+        snprintf(combined, sizeof(combined), "*%s*\n\n%s", msg->payload.collapsible.title, msg->payload.collapsible.body);
         mimi_msg_t text_msg = {0};
-        strncpy(text_msg.channel, msg.channel, sizeof(text_msg.channel) - 1);
-        strncpy(text_msg.chat_id, msg.chat_id, sizeof(text_msg.chat_id) - 1);
+        strncpy(text_msg.channel, msg->channel, sizeof(text_msg.channel) - 1);
+        strncpy(text_msg.chat_id, msg->chat_id, sizeof(text_msg.chat_id) - 1);
         text_msg.type[0] = '\0';
         text_msg.payload.text = combined;
-        esp_err_t err = telegram_send_message(text_msg);
+        esp_err_t err = telegram_send_message(&text_msg);
         if (err != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to send collapsible message to %s: %s", msg.chat_id, esp_err_to_name(err));
+            ESP_LOGE(TAG, "Failed to send collapsible message to %s: %s", msg->chat_id, esp_err_to_name(err));
             return err;
         }
     }
     else {
-        ESP_LOGW(TAG, "Unsupported message type: %s", msg.type);
+        ESP_LOGW(TAG, "Unsupported message type: %s", msg->type);
         return ESP_ERR_INVALID_ARG;
 
     }

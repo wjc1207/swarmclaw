@@ -920,7 +920,7 @@ static char *feishu_build_card_content_collapsible(const char *title, const char
 }
 */
 
-esp_err_t feishu_send_message(mimi_msg_t *msg)
+esp_err_t feishu_send_message(const mimi_msg_t *msg)
 {
     if (!msg) return ESP_ERR_INVALID_ARG;
 
@@ -1089,7 +1089,7 @@ esp_err_t feishu_send_message(mimi_msg_t *msg)
     return all_ok ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t feishu_reply_message(mimi_msg_t *msg)
+esp_err_t feishu_reply_message(const mimi_msg_t *msg)
 {
     if (s_app_id[0] == '\0' || s_app_secret[0] == '\0') {
         return ESP_ERR_INVALID_STATE;

@@ -19,7 +19,7 @@ esp_err_t telegram_bot_start(void);
  * @param chat_id  Telegram chat ID (numeric string)
  * @param text     Message text (supports Markdown)
  */
-esp_err_t telegram_send_message(const mimi_msg_t msg);
+esp_err_t telegram_send_message(const mimi_msg_t *msg);
 
 /**
  * Save the Telegram bot token to NVS.

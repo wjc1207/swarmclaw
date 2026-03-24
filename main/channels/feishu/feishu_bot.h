@@ -21,14 +21,14 @@ esp_err_t feishu_bot_start(void);
  * @param msg_type Message type ("text" or "json")
  * @param text     Message text
  */
-esp_err_t feishu_send_message(mimi_msg_t *msg);
+esp_err_t feishu_send_message(const mimi_msg_t *msg);
 
 /**
  * Reply to a specific message in a Feishu chat.
  * @param message_id  The message_id to reply to
  * @param text        Reply text
  */
-esp_err_t feishu_reply_message(mimi_msg_t *msg);
+esp_err_t feishu_reply_message(const mimi_msg_t *msg);
 
 /**
  * Save Feishu app credentials to NVS.

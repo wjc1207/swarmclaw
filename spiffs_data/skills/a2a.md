@@ -1,223 +1,171 @@
-# a2a_skill — 用 HTTP tool 实现 A2A 通信
+# A2A Protocol (Agent-to-Agent) Guide
 
-## 概述
+## Introduction
 
-ESP32 AI agent 通过标准 HTTP tool 实现 A2A 协议通信，无需额外 SDK。
-A2A 本质是 HTTP POST + JSON，所有交互通过两个固定格式完成。
+The **A2A (Agent-to-Agent) Protocol** is an open standard that enables AI agents to discover and communicate with each other seamlessly. It allows agents to exchange capabilities, intentions, and data in a standardized way, enabling interoperability across different agent frameworks and platforms.
 
----
+A2A protocol defines:
+- A standardized **Agent Card** format for agent capability discovery
+- A common messaging protocol for agent-to-agent communication
+- Secure authentication and authorization mechanisms
+- Service discovery mechanisms
 
-## 作为 Client：主动发消息给远端 A2A agent
+Official documentation: https://a2a-protocol.org/latest/
 
-### 第一步：读取 Agent Card（可选，首次或缓存过期时）
+## What is an Agent Card?
 
+An Agent Card is a standardized JSON document that describes an agent's capabilities, endpoints, authentication requirements, and interaction protocols. It allows other agents to discover how to communicate with and utilize the services provided by this agent.
+
+A typical Agent Card contains:
+- Agent metadata (name, description, version, developer)
+- Endpoint URLs for communication
+- Authentication requirements
+- Supported capabilities and methods
+- Schema definitions for input/output
+- Rate limits and usage policies
+
+## How to Read an Agent Card
+
+### Step 1: Retrieve the Agent Card
+Agent Cards are typically exposed via well-known endpoints on the agent's server:
+
+```python
+import requests
+
+# Fetch agent card from well-known endpoint
+agent_url = "https://example-agent.com"
+response = requests.get(f"{agent_url}/.well-known/agent-card.json")
+agent_card = response.json()
 ```
-HTTP GET {agent_url}/.well-known/agent-card.json
+
+### Step 2: Parse Basic Information
+Extract essential metadata:
+
+```python
+agent_name = agent_card.get("name")
+agent_description = agent_card.get("description")
+version = agent_card.get("version")
+endpoints = agent_card.get("endpoints", {})
 ```
 
-从返回结果确认对方支持的 skill，以及正确的 `url` 字段（即 POST endpoint）。
+### Step 3: Identify Communication Endpoint
+Find the A2A messaging endpoint:
 
-### 第二步：发送任务
-
+```python
+# Get the A2A endpoint
+a2a_endpoint = endpoints.get("a2a", {}).get("url")
+transport = endpoints.get("a2a", {}).get("transport", "http")
 ```
-HTTP POST {agent_card.url}
-Content-Type: application/json
 
-{
-  "jsonrpc": "2.0",
-  "id": "{任意唯一字符串}",
-  "method": "message/send",
-  "params": {
-    "message": {
-      "role": "user",
-      "messageId": "{唯一id}",
-      "contextId": "{会话id}",
-      "parts": [
-        { "text": "{你的请求内容}" }
-      ]
+### Step 4: Check Authentication Requirements
+Understand what authentication is needed:
+
+```python
+auth = agent_card.get("authentication", {})
+auth_type = auth.get("type")  # none, api_key, jwt, oauth2
+required_scopes = auth.get("scopes", [])
+```
+
+### Step 5: Enumerate Capabilities
+List what the agent can do:
+
+```python
+capabilities = agent_card.get("capabilities", [])
+for capability in capabilities:
+    print(f"Capability: {capability['name']} - {capability['description']}")
+    print(f"Input schema: {capability.get('input_schema')}")
+    print(f"Output schema: {capability.get('output_schema')}")
+```
+
+## How to Operate According to the Agent Card
+
+Once you've read and understood the Agent Card, follow these steps to interact with the agent:
+
+### 1. Set Up Authentication
+According to the auth type specified in the Agent Card:
+
+```python
+headers = {}
+
+if auth_type == "api_key":
+    headers["X-API-Key"] = "your-api-key-here"
+elif auth_type == "jwt":
+    token = get_jwt_token()  # Obtain JWT token
+    headers["Authorization"] = f"Bearer {token}"
+```
+
+### 2. Prepare the Request
+Structure your request according to the capability's input schema:
+
+```python
+# Select the capability you want to invoke
+target_capability = capabilities[0]  # Example: first capability
+
+request_body = {
+    "jsonrpc": "2.0",
+    "id": "request-1",
+    "method": target_capability["name"],
+    "params": {
+        # Fill in parameters according to input schema
+        "prompt": "Hello agent!",
+        "parameters": {
+            # Additional parameters
+        }
     }
-  }
 }
 ```
 
-### 第三步：解析返回
+### 3. Send the A2A Request
+Send the request to the A2A endpoint:
 
-成功时从以下路径取结果文本：
+```python
+response = requests.post(
+    a2a_endpoint,
+    json=request_body,
+    headers=headers
+)
 
-```
-response.result.artifacts[0].parts[0].text
-```
-
-失败时检查：
-
-```
-response.error.code
-response.error.message
-```
-
-### 完整示例
-
-```c
-// 1. 构造 body
-char body[512];
-snprintf(body, sizeof(body),
-    "{"
-      "\"jsonrpc\":\"2.0\","
-      "\"id\":\"req-001\","
-      "\"method\":\"message/send\","
-      "\"params\":{\"message\":{"
-        "\"role\":\"user\","
-        "\"messageId\":\"msg-001\","
-        "\"contextId\":\"ctx-001\","
-        "\"parts\":[{\"text\":\"%s\"}]"
-      "}}"
-    "}",
-    request_text);
-
-// 2. 发送
-char reply[512];
-http_post(AGENT_URL, body, reply, sizeof(reply));
-
-// 3. 解析
-cJSON *root     = cJSON_Parse(reply);
-cJSON *result   = cJSON_GetObjectItem(root, "result");
-cJSON *artifacts = cJSON_GetObjectItem(result, "artifacts");
-cJSON *part     = cJSON_GetArrayItem(
-                    cJSON_GetObjectItem(
-                      cJSON_GetArrayItem(artifacts, 0), "parts"), 0);
-const char *text = cJSON_GetStringValue(
-                     cJSON_GetObjectItem(part, "text"));
+if response.status_code == 200:
+    result = response.json()
+    if "result" in result:
+        # Handle successful response
+        output = result["result"]
+        print(f"Agent response: {output}")
+    elif "error" in result:
+        # Handle error
+        error = result["error"]
+        print(f"Error: {error['message']} (code: {error['code']})")
+else:
+    print(f"HTTP Error: {response.status_code}")
 ```
 
----
+### 4. Follow Streaming Protocols (if supported)
+If the agent supports streaming responses:
 
-## 作为 Server：响应远端 A2A agent 的调用
-
-### 需要实现的两个 endpoint
-
-#### GET `/.well-known/agent-card.json`
-
-返回固定 JSON，描述本机能力：
-
-```json
-{
-  "name": "ESP32-Agent",
-  "description": "ESP32 sensor agent",
-  "version": "1.0.0",
-  "url": "http://{ESP32_IP}/message/send",
-  "protocolVersion": "0.3.0",
-  "defaultInputModes": ["text"],
-  "defaultOutputModes": ["text"],
-  "capabilities": { "streaming": false },
-  "skills": [
-    {
-      "id": "read_temperature",
-      "name": "Read Temperature",
-      "description": "Returns current temperature in Celsius",
-      "tags": ["sensor", "temperature"]
-    }
-  ]
-}
+```python
+if target_capability.get("streaming", False):
+    response = requests.post(
+        a2a_endpoint,
+        json=request_body,
+        headers=headers,
+        stream=True
+    )
+    for line in response.iter_lines():
+        if line:
+            # Process each streaming chunk
+            print(f"Chunk: {line.decode('utf-8')}")
 ```
 
-#### POST `/message/send`
+## Best Practices
 
-收到请求后：
+1. **Always validate** against the input/output schemas provided in the Agent Card
+2. **Respect rate limits** specified in the Agent Card's `usage` section
+3. **Handle errors gracefully** according to the error schema
+4. **Cache the Agent Card** to avoid unnecessary fetching
+5. **Support version negotiation** for backward compatibility
 
-1. 从 `params.message.parts[0].text` 取出请求文本
-2. 匹配 skill，执行对应动作
-3. 返回结果
+## References
 
-**成功响应：**
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "{原样返回请求的id}",
-  "result": {
-    "id": "{task_id}",
-    "contextId": "{原样返回}",
-    "status": { "state": "TASK_STATE_COMPLETED" },
-    "artifacts": [
-      {
-        "artifactId": "{artifact_id}",
-        "parts": [{ "text": "{结果内容}" }]
-      }
-    ]
-  }
-}
-```
-
-**失败响应：**
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "{原样返回请求的id}",
-  "error": {
-    "code": -32603,
-    "message": "Sensor read failed"
-  }
-}
-```
-
-### Skill handler 示例
-
-```c
-esp_err_t handle_message(httpd_req_t *req) {
-    // 读 body
-    char body[512];
-    httpd_req_recv(req, body, sizeof(body));
-
-    // 解析请求文本
-    cJSON *root = cJSON_Parse(body);
-    cJSON *id   = cJSON_GetObjectItem(root, "id");
-    const char *text = cJSON_GetStringValue(
-        cJSON_GetObjectItem(
-            cJSON_GetArrayItem(
-                cJSON_GetObjectItem(
-                    cJSON_GetObjectItem(
-                        cJSON_GetObjectItem(root, "params"),
-                    "message"), "parts"), 0),
-        "text"));
-
-    // 匹配 skill
-    char result[64];
-    if (strstr(text, "temperature")) {
-        snprintf(result, sizeof(result), "%.1f °C", read_temperature());
-    } else if (strstr(text, "humidity")) {
-        snprintf(result, sizeof(result), "%.1f %%RH", read_humidity());
-    } else {
-        // 未知请求
-        send_error(req, id, -32601, "Unknown skill");
-        cJSON_Delete(root);
-        return ESP_OK;
-    }
-
-    // 构造响应
-    send_result(req, id, result);
-    cJSON_Delete(root);
-    return ESP_OK;
-}
-```
-
----
-
-## 错误码参考
-
-| code | 含义 |
-|---|---|
-| `-32700` | JSON 解析失败 |
-| `-32600` | 请求格式错误 |
-| `-32601` | skill 不存在 |
-| `-32603` | 内部错误（传感器失败等） |
-| `-32001` | task 不存在 |
-
----
-
-## 注意事项
-
-- `id` 字段必须原样返回，调用方靠它匹配请求和响应
-- `contextId` 代表一次会话，多轮对话保持同一个值
-- Agent Card 的 `url` 字段必须是实际可 POST 的完整地址
-- ESP32 作为 client 时不需要实现 Agent Card 和 server endpoint
+- Official Website: https://a2a-protocol.org/latest/
+- GitHub Repository: [Check the official site for the latest repository link]
+- Specification: Available on the official website
