@@ -74,7 +74,7 @@ static void outbound_dispatch_task(void *arg)
         ESP_LOGI(TAG, "Dispatching response to %s:%s", msg.channel, msg.chat_id);
 
         if (strcmp(msg.channel, MIMI_CHAN_TELEGRAM) == 0) {
-            esp_err_t send_err = telegram_send_message(msg.chat_id, msg.payload.text);
+            esp_err_t send_err = telegram_send_message(msg);
             if (send_err != ESP_OK) {
                 ESP_LOGE(TAG, "Telegram send failed for %s: %s", msg.chat_id, esp_err_to_name(send_err));
             } else {

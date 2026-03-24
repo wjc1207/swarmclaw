@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_err.h"
+#include "bus/message_bus.h"
 
 /**
  * Initialize the Telegram bot.
@@ -18,7 +19,7 @@ esp_err_t telegram_bot_start(void);
  * @param chat_id  Telegram chat ID (numeric string)
  * @param text     Message text (supports Markdown)
  */
-esp_err_t telegram_send_message(const char *chat_id, const char *text);
+esp_err_t telegram_send_message(const mimi_msg_t msg);
 
 /**
  * Save the Telegram bot token to NVS.

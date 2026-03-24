@@ -89,8 +89,12 @@ static int cmd_tg_send(int argc, char **argv)
         return 1;
     }
 
-    esp_err_t err = telegram_send_message(tg_send_args.chat_id->sval[0],
-                                          tg_send_args.text->sval[0]);
+    mimi_msg_t msg = {0};
+    strncpy(msg.channel, MIMI_CHAN_TELEGRAM, sizeof(msg.channel) - 1);
+    strncpy(msg.chat_id, tg_send_args.chat_id->sval[0], sizeof(msg.chat_id) - 1);
+    strncpy(msg.type, "text", sizeof(msg.type) - 1);
+    msg.payload.text = (char *)tg_send_args.text->sval[0];
+    esp_err_t err = message_bus_push_outbound(&msg);
     printf("tg_send status: %s\n", esp_err_to_name(err));
     return (err == ESP_OK) ? 0 : 1;
 }
@@ -130,11 +134,12 @@ static int cmd_feishu_send(int argc, char **argv)
         return 1;
     }
 
-    esp_err_t err = feishu_send_message(&(mimi_msg_t){
-        .chat_id = {0},
-        .type = "text",
-        .payload.text = feishu_send_args.text->sval[0]
-    });
+    mimi_msg_t msg = {0};
+    strncpy(msg.channel, MIMI_CHAN_FEISHU, sizeof(msg.channel) - 1);
+    strncpy(msg.chat_id, feishu_send_args.receive_id->sval[0], sizeof(msg.chat_id) - 1);
+    strncpy(msg.type, "text", sizeof(msg.type) - 1);
+    msg.payload.text = (char *)feishu_send_args.text->sval[0];
+    esp_err_t err = message_bus_push_outbound(&msg);
     printf("feishu_send status: %s\n", esp_err_to_name(err));
     return (err == ESP_OK) ? 0 : 1;
 }
