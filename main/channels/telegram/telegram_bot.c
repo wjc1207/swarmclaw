@@ -547,6 +547,7 @@ esp_err_t telegram_send_message(const mimi_msg_t *msg)
             free(resp);
             offset += chunk;
         }
+        return all_ok ? ESP_OK : ESP_FAIL; 
     }
     else if (strcmp(msg->type , "collapsible") == 0) {
         /* For collapsible, send title and body together */
