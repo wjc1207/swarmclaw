@@ -122,6 +122,7 @@
 #define MIMI_OPENROUTER_API_URL      "https://openrouter.ai/api/v1/chat/completions"
 #define MIMI_NVIDIA_API_URL          "https://integrate.api.nvidia.com/v1/chat/completions"
 #define MIMI_QWEN_API_URL            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+#define MIMI_DEEPSEEK_API_URL        "https://api.deepseek.com/v1/chat/completions"
 #define MIMI_LLM_API_VERSION         "2023-06-01"
 #define MIMI_LLM_STREAM_BUF_SIZE     (32 * 1024)
 #define MIMI_LLM_RESP_MAX_BYTES      (512 * 1024)

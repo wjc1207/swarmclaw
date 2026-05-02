@@ -64,6 +64,7 @@ static const char ONBOARD_HTML[] =
 "<option value='openrouter'>OpenRouter</option>"
 "<option value='nvidia'>NVIDIA NIM</option>"
 "<option value='qwen'>Qwen (DashScope)</option>"
+"<option value='deepseek'>DeepSeek</option>"
 "</select>"
 "<label>Identity System Prompt</label>"
 "<textarea id='system_prompt' placeholder='Optional identity block shown at the top of system prompt'></textarea>"
