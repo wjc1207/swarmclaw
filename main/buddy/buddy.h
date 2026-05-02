@@ -36,7 +36,7 @@
 #define BUDDY_MAX_FRAGMENTS         3
 #define BUDDY_DEVICE_ID_LEN         18
 #define BUDDY_DISPLAY_NAME_LEN      32
-#define BUDDY_BIO_LEN               128
+#define BUDDY_BIO_LEN               512
 #define BUDDY_TAGS_LEN              128
 #define BUDDY_CONTACT_PHONE_LEN     20
 #define BUDDY_CONTACT_EMAIL_LEN     64
@@ -268,3 +268,8 @@ esp_err_t buddy_match_trigger(const buddy_profile_t *self,
  * Set LED pattern. Non-blocking, async-safe.
  */
 esp_err_t buddy_led_set(buddy_led_pattern_t pattern);
+
+/**
+ * cleanup all contacts and reset the contact store (for debug)
+ * tool_exec write_file {"path":"/spiffs/contacts.json","content":"[]"}
+ */

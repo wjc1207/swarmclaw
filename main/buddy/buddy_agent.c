@@ -19,6 +19,7 @@
 #include "led_strip.h"
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
+#include "nvs.h"
 
 static const char *TAG = "buddy_agent";
 
@@ -92,31 +93,34 @@ static esp_err_t cloud_match_score(const buddy_profile_t *self,
 {
     /* Build system prompt */
     static const char *system_prompt =
-        "You are a social matchmaking assistant for a proximity networking device.\n"
-        "Two people have just physically passed each other on the street. Your job:\n"
-        "1. Score how well their interests and vibes align (0.0–1.0)\n"
-        "2. Identify the most compelling shared ground\n"
-        "3. Write a warm, specific icebreaker (1–2 sentences, personal not generic)\n\n"
-        "Only reference interests that appear in BOTH profiles. Be concrete — name the\n"
-        "actual shared tag or topic. Never write \"You seem to have a lot in common!\"\n\n"
-        "Return ONLY valid JSON, no preamble:\n"
-        "{\"match_score\":0.84,\"shared_interests\":[\"tag1\",\"tag2\"],\"icebreaker\":\"...\",\"connection_reason\":\"...\"}";
+        "你是一个近距离社交设备的匹配助手。\n"
+        "两个人刚刚在街上擦肩而过。你的任务：\n"
+        "1. 评估他们兴趣和气场的匹配度（0.0–1.0）\n"
+        "2. 找出最引人注目的共同点\n"
+        "3. 以对方（Peer）的口吻，写一句温暖、具体的破冰语（1–2句话）\n\n"
+        "破冰语要求：\n"
+        "- 破冰语是对方发给自己的，即用Peer的身份对Self说话\n"
+        "- 结合双方的名字、身份简介、状态、交友意愿和共同兴趣点来写\n"
+        "- 自然地提到具体的共同标签或话题，让对方感觉是专门为他们定制的\n"
+        "- 不要写\"你们似乎有很多共同点！\"这种泛泛的话\n\n"
+        "只返回合法的JSON，不要前缀说明：\n"
+        "{\"match_score\":0.84,\"shared_interests\":[\"标签1\",\"标签2\"],\"icebreaker\":\"...\",\"connection_reason\":\"...\"}";
 
     /* Build user message with both profiles */
-    char user_msg[1024];
+    char user_msg[2048];
     snprintf(user_msg, sizeof(user_msg),
-        "Self profile:\n"
-        "Name: %s\n"
-        "Bio: %s\n"
-        "Tags: %s\n"
-        "Vibe: %s\n"
-        "Open to: %s\n\n"
-        "Peer profile:\n"
-        "Name: %s\n"
-        "Bio: %s\n"
-        "Tags: %s\n"
-        "Vibe: %s\n"
-        "Open to: %s\n\n"
+        "自己的档案:\n"
+        "名字: %s\n"
+        "简介: %s\n"
+        "标签: %s\n"
+        "状态: %s\n"
+        "交友意愿: %s\n\n"
+        "对方的档案:\n"
+        "名字: %s\n"
+        "简介: %s\n"
+        "标签: %s\n"
+        "状态: %s\n"
+        "交友意愿: %s\n\n"
         "Context: contact_status=%s, proximity=%s",
         self->display_name, self->bio, self->tags, self->vibe, self->open_to,
         peer->display_name, peer->bio, peer->tags, peer->vibe, peer->open_to,
@@ -263,26 +267,55 @@ static void buddy_contact_task(void *arg)
             /* Update contact record */
             buddy_contacts_update_match(peer_id, score, icebreaker, shared);
 
-            /* Send Feishu notification to self */
-            /* Self Feishu ID is NOT stored in the profile currently.
-               For V1, we notify via the system channel — the cloud backend or
-               a cron job can pick it up. Alternatively, we send to a hardcoded
-               Feishu chat_id configured in NVS. */
-            /* For now, send to the system bus for notification dispatch */
+            /* Send notification via configured channel (or auto-fallback to last active) */
+            char notify_channel[16] = MIMI_CHAN_SYSTEM;
+            char notify_chat_id[96] = "buddy";
+            {
+                nvs_handle_t nvs;
+                if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
+                    size_t len = sizeof(notify_channel);
+                    esp_err_t ch_err = nvs_get_str(nvs, MIMI_NVS_KEY_BUDDY_NOTIFY_CHANNEL,
+                                                   notify_channel, &len);
+                    len = sizeof(notify_chat_id);
+                    esp_err_t id_err = nvs_get_str(nvs, MIMI_NVS_KEY_BUDDY_NOTIFY_CHAT_ID,
+                                                   notify_chat_id, &len);
+                    /* Fallback to last active conversation channel */
+                    if (ch_err != ESP_OK) {
+                        len = sizeof(notify_channel);
+                        if (nvs_get_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHANNEL,
+                                        notify_channel, &len) != ESP_OK) {
+                            strncpy(notify_channel, MIMI_CHAN_SYSTEM, sizeof(notify_channel) - 1);
+                        }
+                    }
+                    if (id_err != ESP_OK) {
+                        len = sizeof(notify_chat_id);
+                        if (nvs_get_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHAT_ID,
+                                        notify_chat_id, &len) != ESP_OK) {
+                            strncpy(notify_chat_id, "buddy", sizeof(notify_chat_id) - 1);
+                        }
+                    }
+                    nvs_close(nvs);
+                }
+            }
+
             mimi_msg_t sys_msg = {0};
-            strncpy(sys_msg.channel, MIMI_CHAN_SYSTEM, sizeof(sys_msg.channel) - 1);
-            strncpy(sys_msg.chat_id, "buddy", sizeof(sys_msg.chat_id) - 1);
+            strncpy(sys_msg.channel, notify_channel, sizeof(sys_msg.channel) - 1);
+            strncpy(sys_msg.chat_id, notify_chat_id, sizeof(sys_msg.chat_id) - 1);
             strncpy(sys_msg.type, "text", sizeof(sys_msg.type) - 1);
 
-            char sys_body[1024];
+            char sys_body[2048];
             snprintf(sys_body, sizeof(sys_body),
-                "BUDDY_MATCH|peer=%s|name=%s|score=%.2f|phone=%s|email=%s|icebreaker=%s",
-                peer_id,
+                "\xF0\x9F\x94\x97 Buddy Match!\n\n"
+                "Peer: %s\n"
+                "Score: %.0f%%\n"
+                "Icebreaker: %s\n"
+                "Phone: %s\n"
+                "Email: %s",
                 evt.peer_profile.display_name,
-                score,
+                score * 100,
+                icebreaker,
                 evt.peer_profile.contact_phone,
-                evt.peer_profile.contact_email,
-                icebreaker);
+                evt.peer_profile.contact_email);
 
             sys_msg.payload.text = strdup(sys_body);
             if (sys_msg.payload.text) {

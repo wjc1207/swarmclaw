@@ -13,9 +13,9 @@
 
 **A branch of existing project [mimiclaw](https://github.com/memovai/mimiclaw)**
 
-**The world's first AI assistant(OpenClaw) on a $5 chip. No Linux. No Node.js. Just pure C**
+**The world's first agentic Shoulder-to-shoulder communication buddy on a $5 chip. No Linux. No Node.js. Just pure C**
 
-Swarmclaw turns a tiny ESP32-S3 board into a personal AI assistant. Plug it into USB power, connect to WiFi, and talk to it through your favorite messaging app — it handles any task you throw at it and evolves over time with local memory — all on a chip the size of a thumb.
+Swarmclaw turns a tiny ESP32-S3 board into a agentic Shoulder-to-shoulder communication buddy. Plug it into USB power, connect to WiFi, and walk on the street to meet new friends, get icebreakers, share contact info, and more — all on a chip the size of a thumb. 
 
 ## Meet Swarmclaw
 

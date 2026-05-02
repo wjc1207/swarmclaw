@@ -39,7 +39,7 @@ static bool s_running = false;
 static uint8_t s_broadcast_mac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 /* ── Peer tracking (beacon dedup + handshake cooldown) ────────── */
-#define PEER_TRACK_MAX 64
+#define PEER_TRACK_MAX 32
 typedef struct {
     uint8_t  mac[6];
     char     device_id[BUDDY_DEVICE_ID_LEN];
@@ -589,7 +589,7 @@ esp_err_t buddy_espnow_send_beacon(void)
 esp_err_t buddy_espnow_init(void)
 {
     /* Create event queue */
-    s_event_queue = xQueueCreate(16, sizeof(buddy_event_t));
+    s_event_queue = xQueueCreate(4, sizeof(buddy_event_t));
     if (!s_event_queue) {
         ESP_LOGE(TAG, "Failed to create event queue");
         return ESP_ERR_NO_MEM;
@@ -607,6 +607,10 @@ esp_err_t buddy_espnow_init(void)
         ESP_LOGE(TAG, "esp_now_init failed: %s", esp_err_to_name(err));
         return err;
     }
+
+    /* Disable WiFi power save — ESP-NOW triggers pm_update_by_connectionless_status
+     * which can deadlock the PHY task under WIFI_PS_MIN_MODEM */
+    esp_wifi_set_ps(WIFI_PS_NONE);
 
     /* Set PMK for encrypted ESP-NOW (must be exactly 16 bytes) */
     err = esp_now_set_pmk((const uint8_t *)BUDDY_ESPNOW_PMK);
@@ -637,7 +641,7 @@ esp_err_t buddy_espnow_start(void)
     /* Create beacon TX task on Core 0 */
     BaseType_t ret = xTaskCreatePinnedToCore(
         beacon_tx_task, "buddy_beacon",
-        4096, NULL, 4, &s_beacon_task, 0);
+        3072, NULL, 4, &s_beacon_task, 0);
 
     if (ret != pdPASS) {
         s_running = false;

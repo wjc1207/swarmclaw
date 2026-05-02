@@ -1,6 +1,7 @@
 #include "agent_loop.h"
 #include "agent/context_builder.h"
 #include "mimi_config.h"
+#include "nvs.h"
 #include "bus/message_bus.h"
 #include "llm/llm_proxy.h"
 #include "wifi/wifi_manager.h"
@@ -492,6 +493,17 @@ static void agent_loop_task(void *arg)
                     ESP_LOGW(TAG, "Outbound queue full, drop error response");
                     free(out.payload.text);
                 }
+            }
+        }
+
+        /* Save source channel/chat_id for buddy notification config */
+        if (msg.channel[0] && strcmp(msg.channel, MIMI_CHAN_SYSTEM) != 0 && msg.chat_id[0]) {
+            nvs_handle_t nvs;
+            if (nvs_open(MIMI_NVS_FEATURE, NVS_READWRITE, &nvs) == ESP_OK) {
+                nvs_set_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHANNEL, msg.channel);
+                nvs_set_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHAT_ID, msg.chat_id);
+                nvs_commit(nvs);
+                nvs_close(nvs);
             }
         }
 

@@ -121,7 +121,7 @@ static const char ONBOARD_HTML[] =
 "</div></div>"
 
 /* Buddy Profile section */
-"<div class='card' id='sec-buddy'>"
+"<div class='card collapsed' id='sec-buddy'>"
 "<div class='card-hdr' onclick='toggle(this)'>Buddy Profile</div>"
 "<div class='card-body'>"
 "<label>Display Name</label>"
@@ -147,6 +147,17 @@ static const char ONBOARD_HTML[] =
 "<label style='display:flex;align-items:center;gap:8px'>"
 "<input id='buddy_privacy' type='checkbox' style='width:auto'> Private Mode (stop broadcasting)"
 "</label>"
+"</div></div>"
+
+/* Buddy Notification section */
+"<div class='card collapsed' id='sec-buddy-notify'>"
+"<div class='card-hdr' onclick='toggle(this)'>Buddy Notification</div>"
+"<div class='card-body'>"
+"<p class='hint'>Last interaction from: <b id='last_channel_display'></b></p>"
+"<label>Notify Channel (e.g. telegram, feishu, cli)</label>"
+"<input id='buddy_notify_channel' placeholder='telegram'>"
+"<label>Notify Chat ID</label>"
+"<input id='buddy_notify_chat_id' placeholder='your_chat_id'>"
 "</div></div>"
 
 /* Features section */
@@ -197,6 +208,18 @@ static const char ONBOARD_HTML[] =
 "else{el.value=cfg[k]}"
 "}"
 "});"
+"var lc=document.getElementById('last_channel_display');"
+"if(lc){"
+"var ch=cfg.last_src_channel||'';"
+"var cid=cfg.last_src_chat_id||'';"
+"lc.textContent=ch?(ch+' / '+cid):'(none yet)';"
+"}"
+"if(!cfg.buddy_notify_channel && cfg.last_src_channel){"
+"var nc=document.getElementById('buddy_notify_channel');"
+"var nci=document.getElementById('buddy_notify_chat_id');"
+"if(nc && !nc.value) nc.value=cfg.last_src_channel;"
+"if(nci && !nci.value) nci.value=cfg.last_src_chat_id||'';"
+"}"
 "applyBuildAvailability(cfg);"
 "}).catch(()=>{})}"
 
@@ -215,7 +238,8 @@ static const char ONBOARD_HTML[] =
 "function save(){"
 "var fields=['ssid','password','api_key','model','provider','system_prompt','tg_token',"
 "'feishu_app_id','feishu_app_secret','proxy_host','proxy_port','proxy_type','search_key','tavily_key',"
-"'buddy_name','buddy_bio','buddy_tags','buddy_vibe','buddy_open_to','buddy_phone','buddy_email'];"
+"'buddy_name','buddy_bio','buddy_tags','buddy_vibe','buddy_open_to','buddy_phone','buddy_email',"
+"'buddy_notify_channel','buddy_notify_chat_id'];"
 "var boolFields=['telegram_bot','feishu_bot','buddy_privacy'];"
 "var data={};"
 "fields.forEach(f=>{"

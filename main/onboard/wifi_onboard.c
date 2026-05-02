@@ -396,6 +396,31 @@ static esp_err_t http_get_config(httpd_req_t *req)
     cJSON_AddBoolToObject(root, "buddy_privacy",
                           buddy_privacy_get() == BUDDY_MODE_PRIVATE);
 
+    /* Buddy notification config */
+    {
+        char value[128] = {0};
+        nvs_handle_t nvs;
+        if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
+            size_t len = sizeof(value);
+            if (nvs_get_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHANNEL, value, &len) == ESP_OK) {
+                cJSON_AddStringToObject(root, "last_src_channel", value);
+            }
+            len = sizeof(value); value[0] = '\0';
+            if (nvs_get_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHAT_ID, value, &len) == ESP_OK) {
+                cJSON_AddStringToObject(root, "last_src_chat_id", value);
+            }
+            len = sizeof(value); value[0] = '\0';
+            if (nvs_get_str(nvs, MIMI_NVS_KEY_BUDDY_NOTIFY_CHANNEL, value, &len) == ESP_OK) {
+                cJSON_AddStringToObject(root, "buddy_notify_channel", value);
+            }
+            len = sizeof(value); value[0] = '\0';
+            if (nvs_get_str(nvs, MIMI_NVS_KEY_BUDDY_NOTIFY_CHAT_ID, value, &len) == ESP_OK) {
+                cJSON_AddStringToObject(root, "buddy_notify_chat_id", value);
+            }
+            nvs_close(nvs);
+        }
+    }
+
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
     if (!json) {
@@ -578,6 +603,10 @@ static esp_err_t http_post_save(httpd_req_t *req)
     /* Feature toggles */
     nvs_sync_bool_field(root, "telegram_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_TELEGRAM_BOT);
     nvs_sync_bool_field(root, "feishu_bot", MIMI_NVS_FEATURE, MIMI_NVS_KEY_FEISHU_BOT);
+
+    /* Buddy notification */
+    nvs_sync_field(root, "buddy_notify_channel", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BUDDY_NOTIFY_CHANNEL);
+    nvs_sync_field(root, "buddy_notify_chat_id", MIMI_NVS_FEATURE, MIMI_NVS_KEY_BUDDY_NOTIFY_CHAT_ID);
 
     /* Buddy profile */
     {
