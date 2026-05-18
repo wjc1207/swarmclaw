@@ -28,14 +28,14 @@
 #define BUDDY_REHANDSHAKE_COOLDOWN_S (30 * 60)
 
 /* ── Profile limits ──────────────────────────────────────────── */
-#define BUDDY_PROFILE_MAX_BYTES     720
+#define BUDDY_PROFILE_MAX_BYTES     1536
 #define BUDDY_DEVICE_ID_LEN         18
 #define BUDDY_DISPLAY_NAME_LEN      32
-#define BUDDY_BIO_LEN               512
+#define BUDDY_BIO_LEN               1024
 #define BUDDY_TAGS_LEN              128
 #define BUDDY_CONTACT_PHONE_LEN     20
 #define BUDDY_CONTACT_EMAIL_LEN     64
-#define BUDDY_ICEBREAKER_LEN        512
+#define BUDDY_ICEBREAKER_LEN        1024
 #define BUDDY_MAX_CONTACTS          500
 
 /* ── Proximity classes ───────────────────────────────────────── */

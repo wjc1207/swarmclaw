@@ -198,12 +198,18 @@ esp_err_t buddy_contacts_list(buddy_contact_record_t *buf, size_t max, size_t *c
 /* ── Check status ─────────────────────────────────────────────── */
 buddy_contact_status_t buddy_contacts_check(const char *peer_id)
 {
-    buddy_contact_record_t rec;
-    esp_err_t err = buddy_contacts_get(peer_id, &rec);
-    if (err == ESP_ERR_NOT_FOUND) return BUDDY_CONTACT_NEW;
+    buddy_contact_record_t *rec = heap_caps_calloc(1, sizeof(*rec), MALLOC_CAP_SPIRAM);
+    if (!rec) return BUDDY_CONTACT_NEW;
+
+    esp_err_t err = buddy_contacts_get(peer_id, rec);
+    if (err == ESP_ERR_NOT_FOUND) {
+        heap_caps_free(rec);
+        return BUDDY_CONTACT_NEW;
+    }
 
     int64_t now = unix_now();
-    int64_t age = now - rec.last_met_unix;
+    int64_t age = now - rec->last_met_unix;
+    heap_caps_free(rec);
     if (age < 86400) return BUDDY_CONTACT_RECENT;
     return BUDDY_CONTACT_KNOWN;
 }

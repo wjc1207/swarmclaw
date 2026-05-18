@@ -107,9 +107,9 @@ static esp_err_t cloud_match_score(const buddy_profile_t *self,
         "{\"match_score\":0.84,\"shared_interests\":[\"标签1\",\"标签2\"],\"icebreaker\":\"...\",\"connection_reason\":\"...\"}";
 
     /* Build user message in PSRAM to keep stack small */
-    char *user_msg = heap_caps_calloc(1, 2048, MALLOC_CAP_SPIRAM);
+    char *user_msg = heap_caps_calloc(1, 4096, MALLOC_CAP_SPIRAM);
     if (!user_msg) return ESP_ERR_NO_MEM;
-    snprintf(user_msg, 2048,
+    snprintf(user_msg, 4096,
         "自己的档案:\n"
         "名字: %s\n"
         "简介: %s\n"
@@ -257,16 +257,20 @@ static void buddy_contact_task(void *arg)
         }
 
         buddy_profile_t *self = heap_caps_calloc(1, sizeof(*self), MALLOC_CAP_SPIRAM);
-        if (!self) continue;
+        if (!self) { heap_caps_free(evt.peer_profile); continue; }
         buddy_profile_get(self);
 
         float score = 0.5f;
-        char icebreaker[BUDDY_ICEBREAKER_LEN] = {0};
         char shared[128] = {0};
+        char *icebreaker = heap_caps_calloc(1, BUDDY_ICEBREAKER_LEN, MALLOC_CAP_SPIRAM);
+        if (!icebreaker) {
+            heap_caps_free(self);
+            continue;
+        }
 
         esp_err_t match_err = cloud_match_score(
             self, evt.peer_profile, cstat, evt.proximity,
-            icebreaker, sizeof(icebreaker),
+            icebreaker, BUDDY_ICEBREAKER_LEN,
             &score, shared, sizeof(shared));
 
         if (match_err == ESP_OK) {
@@ -274,8 +278,10 @@ static void buddy_contact_task(void *arg)
             buddy_contacts_update_match(peer_id, score, icebreaker, shared);
 
             /* Send notification via configured channel (or auto-fallback to last active) */
-            char notify_channel[16] = MIMI_CHAN_SYSTEM;
-            char notify_chat_id[96] = "buddy";
+            char notify_channel[16];
+            char notify_chat_id[96];
+            strncpy(notify_channel, MIMI_CHAN_SYSTEM, sizeof(notify_channel) - 1);
+            strncpy(notify_chat_id, "buddy", sizeof(notify_chat_id) - 1);
             {
                 nvs_handle_t nvs;
                 if (nvs_open(MIMI_NVS_FEATURE, NVS_READONLY, &nvs) == ESP_OK) {
@@ -285,7 +291,6 @@ static void buddy_contact_task(void *arg)
                     len = sizeof(notify_chat_id);
                     esp_err_t id_err = nvs_get_str(nvs, MIMI_NVS_KEY_BUDDY_NOTIFY_CHAT_ID,
                                                    notify_chat_id, &len);
-                    /* Fallback to last active conversation channel */
                     if (ch_err != ESP_OK) {
                         len = sizeof(notify_channel);
                         if (nvs_get_str(nvs, MIMI_NVS_KEY_LAST_SRC_CHANNEL,
@@ -336,11 +341,10 @@ static void buddy_contact_task(void *arg)
             ESP_LOGI(TAG, "Match complete: %s (%.2f)", peer_id, score);
         } else {
             ESP_LOGW(TAG, "Cloud match failed for %s, retry once in 30s...", peer_id);
-            /* Simple retry after delay */
             vTaskDelay(pdMS_TO_TICKS(30000));
             match_err = cloud_match_score(
                 self, evt.peer_profile, cstat, evt.proximity,
-                icebreaker, sizeof(icebreaker),
+                icebreaker, BUDDY_ICEBREAKER_LEN,
                 &score, shared, sizeof(shared));
             if (match_err == ESP_OK) {
                 buddy_contacts_update_match(peer_id, score, icebreaker, shared);
@@ -348,6 +352,8 @@ static void buddy_contact_task(void *arg)
                 ESP_LOGW(TAG, "Cloud match retry failed, dropping");
             }
         }
+
+        heap_caps_free(icebreaker);
 
         heap_caps_free(self);
         heap_caps_free(evt.peer_profile);
@@ -366,12 +372,15 @@ esp_err_t buddy_match_trigger(const buddy_profile_t *self,
     if (!wifi_manager_is_connected()) return ESP_ERR_INVALID_STATE;
 
     float score = 0.5f;
-    char icebreaker[BUDDY_ICEBREAKER_LEN] = {0};
     char shared[128] = {0};
+    char *icebreaker = heap_caps_calloc(1, BUDDY_ICEBREAKER_LEN, MALLOC_CAP_SPIRAM);
+    if (!icebreaker) return ESP_ERR_NO_MEM;
 
-    return cloud_match_score(self, peer, status, proximity,
-                             icebreaker, sizeof(icebreaker),
-                             &score, shared, sizeof(shared));
+    esp_err_t ret = cloud_match_score(self, peer, status, proximity,
+                                      icebreaker, BUDDY_ICEBREAKER_LEN,
+                                      &score, shared, sizeof(shared));
+    heap_caps_free(icebreaker);
+    return ret;
 }
 
 /* ── Init / Start ─────────────────────────────────────────────── */

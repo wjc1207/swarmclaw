@@ -46,7 +46,7 @@ typedef struct {
     uint8_t  peer_mac[6];
     char     peer_device_id[18];
     int8_t   rssi;
-    char     profile_buf[720];
+    char     profile_buf[BUDDY_PROFILE_MAX_BYTES];
     size_t   profile_len;
     bool     profile_sent;
     bool     active;
@@ -146,10 +146,13 @@ static void buddy_ble_start_adv(void)
            &dev_id_bytes[0], &dev_id_bytes[1], &dev_id_bytes[2],
            &dev_id_bytes[3], &dev_id_bytes[4], &dev_id_bytes[5]);
 
-    buddy_profile_t profile;
+    buddy_profile_t *profile = heap_caps_calloc(1, sizeof(*profile), MALLOC_CAP_SPIRAM);
     uint8_t profile_hash[8] = {0};
-    if (buddy_profile_get(&profile) == ESP_OK) {
-        memcpy(profile_hash, profile.profile_hash, 8);
+    if (profile) {
+        if (buddy_profile_get(profile) == ESP_OK) {
+            memcpy(profile_hash, profile->profile_hash, 8);
+        }
+        heap_caps_free(profile);
     }
 
     /* Build manufacturer data: company_id(2) + version(1) + device_id(6) + hash(8) + flags(1) */
@@ -211,18 +214,23 @@ static void buddy_ble_start_scan(void)
 static int serialize_profile(char *buf, size_t size)
 {
     const buddy_identity_t *id = buddy_identity_get();
-    buddy_profile_t profile;
-    if (buddy_profile_get(&profile) != ESP_OK) return -1;
+    buddy_profile_t *profile = heap_caps_calloc(1, sizeof(*profile), MALLOC_CAP_SPIRAM);
+    if (!profile) return -1;
+    if (buddy_profile_get(profile) != ESP_OK) {
+        heap_caps_free(profile);
+        return -1;
+    }
 
     cJSON *root = cJSON_CreateObject();
-    cJSON_AddStringToObject(root, "dn", profile.display_name);
-    cJSON_AddStringToObject(root, "bi", profile.bio);
-    cJSON_AddStringToObject(root, "tg", profile.tags);
-    cJSON_AddStringToObject(root, "vb", profile.vibe);
-    cJSON_AddStringToObject(root, "ot", profile.open_to);
-    cJSON_AddStringToObject(root, "cp", profile.contact_phone);
-    cJSON_AddStringToObject(root, "ce", profile.contact_email);
+    cJSON_AddStringToObject(root, "dn", profile->display_name);
+    cJSON_AddStringToObject(root, "bi", profile->bio);
+    cJSON_AddStringToObject(root, "tg", profile->tags);
+    cJSON_AddStringToObject(root, "vb", profile->vibe);
+    cJSON_AddStringToObject(root, "ot", profile->open_to);
+    cJSON_AddStringToObject(root, "cp", profile->contact_phone);
+    cJSON_AddStringToObject(root, "ce", profile->contact_email);
     cJSON_AddStringToObject(root, "did", id->device_id);
+    heap_caps_free(profile);
 
     char *json = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -368,10 +376,16 @@ static int gatt_svc_disc_cb(uint16_t conn_handle,
 
 static void gatt_start_exchange(uint16_t conn_handle)
 {
-    char own_profile[720];
-    int own_len = serialize_profile(own_profile, sizeof(own_profile));
+    char *own_profile = heap_caps_calloc(1, BUDDY_PROFILE_MAX_BYTES, MALLOC_CAP_SPIRAM);
+    if (!own_profile) {
+        ESP_LOGE(TAG, "Failed to allocate own profile buffer");
+        ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+        return;
+    }
+    int own_len = serialize_profile(own_profile, BUDDY_PROFILE_MAX_BYTES);
     if (own_len < 0) {
         ESP_LOGE(TAG, "Failed to serialize own profile");
+        heap_caps_free(own_profile);
         ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
         return;
     }
@@ -380,13 +394,14 @@ static void gatt_start_exchange(uint16_t conn_handle)
         int rc = ble_gattc_write_flat(conn_handle,
             s_chr_profile_write_handle,
             own_profile, own_len, gatt_profile_write_cb, NULL);
+        heap_caps_free(own_profile);
         if (rc != 0) {
-            ESP_LOGW(TAG, "ble_gattc_write_flat failed: %d", rc);
+            ESP_LOGW(TAG, "Profile write failed: %d", rc);
         }
     } else {
+        heap_caps_free(own_profile);
         ESP_LOGW(TAG, "Profile write handle not found, skipping write");
         s_conn->profile_sent = true;
-        /* No write needed — start read now */
         gatt_start_read(conn_handle);
     }
 }
@@ -662,9 +677,9 @@ static int buddy_ble_gatt_access(uint16_t conn_handle, uint16_t attr_handle,
 
     if (ble_uuid_cmp(uuid, &g_buddy_chr_profile_uuid.u) == 0) {
         /* READ: return our profile JSON (use PSRAM to limit stack usage) */
-        char *profile_json = heap_caps_calloc(1, 720, MALLOC_CAP_SPIRAM);
+        char *profile_json = heap_caps_calloc(1, BUDDY_PROFILE_MAX_BYTES, MALLOC_CAP_SPIRAM);
         if (!profile_json) return BLE_ATT_ERR_INSUFFICIENT_RES;
-        int len = serialize_profile(profile_json, 720);
+        int len = serialize_profile(profile_json, BUDDY_PROFILE_MAX_BYTES);
         if (len < 0) {
             heap_caps_free(profile_json);
             return BLE_ATT_ERR_UNLIKELY;
@@ -678,11 +693,11 @@ static int buddy_ble_gatt_access(uint16_t conn_handle, uint16_t attr_handle,
     if (ble_uuid_cmp(uuid, &g_buddy_chr_profile_write_uuid.u) == 0) {
         /* WRITE: peer is sending their profile (use PSRAM to limit stack usage) */
         uint16_t om_len = OS_MBUF_PKTLEN(ctxt->om);
-        if (om_len == 0 || om_len >= 720) {
+        if (om_len == 0 || om_len >= BUDDY_PROFILE_MAX_BYTES) {
             return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
         }
 
-        char *buf = heap_caps_calloc(1, 720, MALLOC_CAP_SPIRAM);
+        char *buf = heap_caps_calloc(1, BUDDY_PROFILE_MAX_BYTES, MALLOC_CAP_SPIRAM);
         if (!buf) return BLE_ATT_ERR_INSUFFICIENT_RES;
         os_mbuf_copydata(ctxt->om, 0, om_len, buf);
         buf[om_len] = '\0';
@@ -771,7 +786,7 @@ static void buddy_ble_on_sync(void)
         return;
     }
 
-    ble_att_set_preferred_mtu(256);
+    ble_att_set_preferred_mtu(512);
 
     ESP_LOGI(TAG, "NimBLE synced, GATT services registered (%d handles)",
              num_handles);
